@@ -144,3 +144,11 @@ TAB, which have separate message/framing cases.
 | Hash dimming starts at the shortest unique prefix among all objects       | T      | Independent sorted-neighbor check with 3,000 blobs in both object formats |
 | HEAD, branches, remotes, tags, stash, grafted and replaced decorations    | T      | Exact escape-sequence goldens                                             |
 | Merge parent prefixes, full-length uniqueness and empty configured colors | T      | Header goldens and stripped-color equality                                |
+
+## Graph layout
+
+| Case                                                           | Status | Coverage            |
+| -------------------------------------------------------------- | ------ | ------------------- |
+| Linear ancestry, multiple roots, and reused lane holes         | T      | Pure layout goldens |
+| Merge fan-out, existing parents, pulls, and vertical crossings | T      | Pure layout goldens |
+| Duplicate parents and lane color counter wrap                  | T      | Pure layout goldens |
