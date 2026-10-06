@@ -13,7 +13,9 @@
 // limitations under the License.
 
 mod args;
+mod env;
 mod error;
+mod git;
 
 use std::ffi::OsString;
 use std::io::Write;
@@ -36,13 +38,10 @@ pub enum Exit {
 
 #[must_use]
 pub fn run(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Exit {
-    match execute(ctx, out) {
+    match execute(ctx, out, err) {
         Ok(()) => Exit::Code(0),
         Err(error) => {
-            if writeln!(err, "ghist: {error}")
-                .and_then(|()| err.flush())
-                .is_err()
-            {
+            if error.report(err).is_err() {
                 return Exit::Code(1);
             }
             error.exit()
@@ -50,13 +49,18 @@ pub fn run(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Exit {
     }
 }
 
-fn execute(ctx: &Context, out: &mut dyn Write) -> Result<(), error::Error> {
+fn execute(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Result<(), error::Error> {
     match args::parse(&ctx.args)? {
         args::Action::Help => out.write_all(args::HELP.as_bytes())?,
         args::Action::Version => {
             out.write_all(concat!("ghist ", env!("CARGO_PKG_VERSION"), "\n").as_bytes())?;
         }
-        args::Action::Log(_) => {}
+        args::Action::Log(_) => {
+            let (config, stderr) = git::config::Config::read(ctx)?;
+            let _ = config.boolean(b"log.mailmap", true)?;
+            err.write_all(&stderr)?;
+            err.flush()?;
+        }
     }
     out.flush()?;
     Ok(())
@@ -111,14 +115,6 @@ mod tests {
             assert_eq!(out, expected.as_bytes());
             assert_eq!(err, b"");
         }
-    }
-
-    #[test]
-    fn empty_log_scaffold() {
-        assert_eq!(
-            run(&Context::default(), &mut Vec::new(), &mut Vec::new()),
-            Exit::Code(0)
-        );
     }
 
     #[test]
@@ -214,9 +210,12 @@ mod tests {
         let mut err = Vec::new();
         assert_eq!(
             run(
-                &Context::default(),
+                &Context {
+                    args: vec!["--help".into()],
+                    ..Context::default()
+                },
                 &mut FailAfter {
-                    left: 0,
+                    left: usize::MAX,
                     fail_flush: true
                 },
                 &mut err

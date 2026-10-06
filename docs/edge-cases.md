@@ -62,3 +62,18 @@ behavior entries above stay marked as gaps until ghist itself is tested.
 | Tags, remote refs, independent roots, ordered octopus parents           | T      | `tests/it/fixtures.rs`                                |
 | Shallow clones, stash, replace refs, mailmap                            | T      | `supports_shallow_stash_replace_and_mailmap_fixtures` |
 | Allowlisted process environment and Git setup failures                  | T      | `isolates_environment_and_git_failures`               |
+
+## Configuration and subprocess setup
+
+| Dimension                                                      | Status | Evidence                                                   |
+| -------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
+| Last-entry precedence across aliases; subsection case          | T      | `git::config::tests`                                       |
+| Bare, empty, multiline, and non-UTF-8 configuration values     | T      | `git::config::tests`                                       |
+| Boolean keywords, numeric bases, scale suffixes, signed bounds | T      | `env::tests`, `tests/it/config.rs`                         |
+| Invalid `log.mailmap` values exit 128                          | T      | `reads_real_config_and_rejects_invalid_boolean`            |
+| Explicit argv, allowlisted environment, null stdin             | T      | `config_subprocess_has_explicit_arguments_and_environment` |
+| Raw stderr, nonzero status, signal status, and spawn failures  | T      | `tests/it/config.rs`                                       |
+| Large stderr does not block stdout                             | T      | `drains_large_stderr_without_deadlocking`                  |
+| Git failures take precedence over malformed protocol output    | T      | `prioritizes_git_failures_over_malformed_stdout`           |
+| Help and version avoid spawning Git                            | T      | `informational_options_do_not_start_git`                   |
+| Stderr write and flush failures remain errors                  | T      | `surfaces_stderr_write_failures`                           |

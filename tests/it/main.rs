@@ -13,4 +13,5 @@
 // limitations under the License.
 
 mod common;
+mod config;
 mod fixtures;

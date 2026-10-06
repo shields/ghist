@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::ffi::OsString;
+use std::io::Write;
 use std::{fmt, io};
 
 use crate::Exit;
@@ -21,13 +22,32 @@ use crate::Exit;
 pub enum Error {
     Usage(OsString),
     Io(io::Error),
+    Protocol(&'static str),
+    Config {
+        key: Vec<u8>,
+        value: Option<Vec<u8>>,
+    },
+    Git {
+        exit: Exit,
+        stderr: Vec<u8>,
+    },
 }
 
 impl Error {
+    pub fn report(&self, err: &mut dyn Write) -> io::Result<()> {
+        match self {
+            Self::Git { stderr, .. } => err.write_all(stderr)?,
+            _ => writeln!(err, "ghist: {self}")?,
+        }
+        err.flush()
+    }
+
     pub const fn exit(&self) -> Exit {
         match self {
             Self::Usage(_) => Exit::Code(2),
-            Self::Io(_) => Exit::Code(1),
+            Self::Io(_) | Self::Protocol(_) => Exit::Code(1),
+            Self::Config { .. } => Exit::Code(128),
+            Self::Git { exit, .. } => *exit,
         }
     }
 }
@@ -41,6 +61,16 @@ impl fmt::Display for Error {
                 arg.to_string_lossy()
             ),
             Self::Io(error) => error.fmt(f),
+            Self::Protocol(message) => write!(f, "invalid git output: {message}"),
+            Self::Config { key, value } => write!(
+                f,
+                "invalid configuration {}: {}",
+                String::from_utf8_lossy(key),
+                String::from_utf8_lossy(value.as_deref().unwrap_or(b"(implicit true)"))
+            ),
+            Self::Git { stderr, .. } => {
+                write!(f, "git failed: {}", String::from_utf8_lossy(stderr))
+            }
         }
     }
 }
@@ -49,7 +79,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Io(error) => Some(error),
-            Self::Usage(_) => None,
+            Self::Usage(_) | Self::Protocol(_) | Self::Config { .. } | Self::Git { .. } => None,
         }
     }
 }
@@ -72,6 +102,34 @@ mod tests {
         assert_eq!(error.exit(), Exit::Code(2));
         assert_eq!(error.to_string(), "unknown option: --bad; see ghist --help");
         assert!(error.source().is_none());
+    }
+
+    #[test]
+    fn subprocess_and_configuration_errors() {
+        for error in [
+            Error::Protocol("framing"),
+            Error::Config {
+                key: b"log.mailmap".to_vec(),
+                value: Some(b"bad".to_vec()),
+            },
+            Error::Config {
+                key: b"core.pager".to_vec(),
+                value: None,
+            },
+            Error::Git {
+                exit: Exit::Code(42),
+                stderr: b"failure\xff\n".to_vec(),
+            },
+        ] {
+            assert!(error.source().is_none());
+            assert_ne!(error.to_string(), "");
+            let mut err = Vec::new();
+            error.report(&mut err).unwrap();
+            if let Error::Git { .. } = error {
+                assert_eq!(error.exit(), Exit::Code(42));
+                assert_eq!(err, b"failure\xff\n");
+            }
+        }
     }
 
     #[test]

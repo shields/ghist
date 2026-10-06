@@ -14,6 +14,7 @@
 
 use std::ffi::{OsStr, OsString};
 use std::io::{self, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::{fs, thread};
@@ -58,6 +59,20 @@ impl TestRepo {
             args: args.iter().map(OsString::from).collect(),
             ..ghist::Context::default()
         }
+    }
+
+    pub fn fake_git(&self, script: &[u8]) -> io::Result<ghist::Context> {
+        let bin = self.cwd.join("bin");
+        fs::create_dir_all(&bin)?;
+        let path = bin.join("git");
+        let mut bytes = b"#!/bin/sh\n".to_vec();
+        bytes.extend_from_slice(script);
+        fs::write(&path, bytes)?;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
+        let mut ctx = self.context(&[]);
+        ctx.env.retain(|(key, _)| key != "PATH");
+        ctx.env.push(("PATH".into(), bin.into_os_string()));
+        Ok(ctx)
     }
 
     pub fn git(&self, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> io::Result<Vec<u8>> {
