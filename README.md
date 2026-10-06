@@ -119,3 +119,17 @@ page, full history, patches, and stats with Git.
 `BENCH_REV` selects the patch/stat range and defaults to `HEAD~100..HEAD`. See
 [the recorded benchmarks](docs/benchmarks.md) for timings and the release
 profile decision.
+
+## Publishing
+
+`make publish-dry-run` packages a temporary copy of the current commit using
+[gitcalver](https://github.com/gitcalver/rust). It requires a clean checkout on
+the default branch. Install gitcalver with `cargo install gitcalver --locked`.
+`make publish` publishes that version.
+
+The first publish is manual: crates.io Trusted Publishing cannot create a crate.
+After it exists, configure its trusted publisher for `shields/ghist`, workflow
+`publish.yml`, and environment `release`. See the
+[crates.io setup instructions](https://crates.io/docs/trusted-publishing).
+Subsequent pushes to `main` run the full CI workflow before publishing with a
+short-lived OIDC token.
