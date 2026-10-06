@@ -137,12 +137,40 @@ impl<Id: Clone + Eq> Graph<Id> {
                 .get_mut(source)
                 .expect("a pull starts at an occupied lane") = None;
         }
+        self.compact(node);
         while self.lanes.last().is_some_and(Option::is_none) {
             self.lanes.pop();
         }
         self.shape.width = self.shape.width.max(self.lanes.len());
         self.shape.pad = vertical(&self.lanes);
         &self.shape
+    }
+
+    fn compact(&mut self, node: usize) {
+        let Some(source) = self.lanes.iter().rposition(Option::is_some) else {
+            return;
+        };
+        let Some(target) = self
+            .lanes
+            .iter()
+            .enumerate()
+            .take(source)
+            .find_map(|(index, lane)| (index != node && lane.is_none()).then_some(index))
+        else {
+            return;
+        };
+        let mut row = vertical(&self.lanes);
+        let moving = self
+            .lanes
+            .get_mut(source)
+            .expect("the rightmost occupied lane is allocated")
+            .take()
+            .expect("the source lane is occupied");
+        connect(&mut row, target, source, moving.color);
+        set(&mut row, target, DOWN | RIGHT, moving.color);
+        set(&mut row, source, UP | LEFT, moving.color);
+        *self.lanes.get_mut(target).expect("the hole is allocated") = Some(moving);
+        self.shape.rows.push(row);
     }
 
     fn fanout(&mut self, node: usize, incoming: &[Cell], targets: &[(usize, usize, bool)]) {
@@ -268,16 +296,32 @@ mod tests {
         assert_eq!(rows(graph.next(&9, &[8, 7, 6])), ["●", "├─┬─╮", "│ │ │"]);
         assert_eq!(
             rows(graph.next(&8, &[6, 5])),
-            ["● │ │", "├─│─│─╮", "├─│─╯ │", "│ │   │"]
+            ["● │ │", "├─│─│─╮", "├─│─╯ │", "│ │ ╭─╯", "│ │ │"]
         );
         assert_eq!(
             rows(graph.next(&7, &[6, 5, 4])),
-            ["│ ●   │", "├─┼───┤", "│ │   │"]
+            ["│ ● │", "├─┼─┤", "│ │ │"]
         );
-        assert_eq!(rows(graph.next(&5, &[6])), ["│ │   ●", "├─│───╯", "│ │"]);
+        assert_eq!(rows(graph.next(&5, &[6])), ["│ │ ●", "├─│─╯", "│ │"]);
         assert_eq!(rows(graph.next(&4, &[6, 3])), ["│ ●", "├─┤", "│ │"]);
         assert_eq!(rows(graph.next(&6, &[])), ["● │", "  │"]);
         assert_eq!(rows(graph.next(&3, &[])), ["  ●", ""]);
+    }
+
+    #[test]
+    fn compaction_crosses_lanes_and_preserves_the_moving_color() {
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
+        graph.next(&10, &[9, 8, 7, 6]);
+        let shape = graph.next(&8, &[]);
+        assert_eq!(rows(shape), ["│ ● │ │", "│   │ │"]);
+        let shape = graph.next(&7, &[5, 9]);
+        assert_eq!(rows(shape), ["│   ● │", "├───┤ │", "│ ╭─│─╯", "│ │ │"]);
+        assert_eq!(shape.fixed_rows(), 3);
+        assert_eq!(shape.text_column(), 9);
+        assert_eq!(shape.rows[2][2].color, 3);
+        assert_eq!(shape.rows[2][4].color, 4);
+        assert_eq!(shape.rows[2][6].color, 3);
+        assert_eq!(shape.pad[2].color, 3);
     }
 
     #[test]
