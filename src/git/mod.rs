@@ -14,6 +14,7 @@
 
 pub mod config;
 pub mod log;
+pub mod revs;
 #[cfg(all(test, not(coverage_nightly)))]
 mod stream_fuzz;
 

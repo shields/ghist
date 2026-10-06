@@ -16,6 +16,7 @@ mod header;
 mod message;
 mod width;
 
+use std::collections::HashSet;
 use std::io::{self, Write};
 
 use crate::color::Palette;
@@ -30,10 +31,11 @@ pub struct Renderer<'a> {
     colors: Option<&'a Palette>,
     graph: Graph<Oid>,
     prefixes: Prefixes,
+    hidden: HashSet<Oid>,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(out: &'a mut dyn Write, colors: Option<&'a Palette>) -> Self {
+    pub fn new(out: &'a mut dyn Write, colors: Option<&'a Palette>, hidden: HashSet<Oid>) -> Self {
         Self {
             out,
             first: true,
@@ -44,6 +46,7 @@ impl<'a> Renderer<'a> {
                     .unwrap_or(NonZeroUsize::MIN),
             ),
             prefixes: Prefixes::default(),
+            hidden,
         }
     }
 
@@ -52,7 +55,12 @@ impl<'a> Renderer<'a> {
             write_line(self.out, self.prefixes.separator(), b"")?;
         }
         self.first = false;
-        let parents: Vec<_> = record.parents.iter().map(|parent| parent.oid).collect();
+        let parents: Vec<_> = record
+            .parents
+            .iter()
+            .map(|parent| parent.oid)
+            .filter(|oid| !self.hidden.contains(oid))
+            .collect();
         self.prefixes.paint(
             self.graph.next(&record.oid, &parents),
             self.colors.map(|palette| palette.graph.as_slice()),
@@ -128,7 +136,9 @@ mod tests {
             .into_iter()
             .collect();
         let mut out = Vec::new();
-        Renderer::new(&mut out, None).commit(&record).unwrap();
+        Renderer::new(&mut out, None, HashSet::new())
+            .commit(&record)
+            .unwrap();
         assert_eq!(
             out,
             concat!(
@@ -154,13 +164,13 @@ mod tests {
         shape.rows.clone_from(&generated.rows);
         shape.width = generated.width;
         let mut out = Vec::new();
-        let mut renderer = Renderer::new(&mut out, None);
+        let mut renderer = Renderer::new(&mut out, None, HashSet::new());
         renderer.prefixes.paint(&shape, None);
         renderer.finish().unwrap();
         assert_eq!(out, "●\n".as_bytes());
         for count in 0..out.len() {
             let mut writer = FailAfter(count);
-            let mut renderer = Renderer::new(&mut writer, None);
+            let mut renderer = Renderer::new(&mut writer, None, HashSet::new());
             renderer.prefixes.paint(&shape, None);
             assert_eq!(renderer.finish().unwrap_err().to_string(), "output failed");
         }
@@ -172,7 +182,7 @@ mod tests {
         let mut empty = header::tests::record();
         empty.message.clear();
         let mut out = Vec::new();
-        let mut renderer = Renderer::new(&mut out, None);
+        let mut renderer = Renderer::new(&mut out, None, HashSet::new());
         renderer.commit(&record).unwrap();
         renderer.commit(&empty).unwrap();
         assert!(
@@ -182,7 +192,7 @@ mod tests {
         assert!(!out.ends_with(b"\n\n"));
         for count in 0..out.len() {
             let mut writer = FailAfter(count);
-            let mut renderer = Renderer::new(&mut writer, None);
+            let mut renderer = Renderer::new(&mut writer, None, HashSet::new());
             let error = renderer
                 .commit(&record)
                 .and_then(|()| renderer.commit(&empty))

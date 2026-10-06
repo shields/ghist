@@ -26,6 +26,7 @@ mod gaps;
 mod graph_colors;
 mod headers;
 mod hostile;
+mod ranges;
 
 #[cfg(not(coverage_nightly))]
 mod properties;
