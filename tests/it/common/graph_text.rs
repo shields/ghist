@@ -16,7 +16,8 @@ pub fn strip(bytes: &[u8]) -> Result<Vec<u8>, String> {
     let mut column = usize::MAX;
     let mut output = Vec::new();
     for line in bytes.split_inclusive(|&byte| byte == b'\n') {
-        let mut rest = line;
+        let plain = super::ansi::strip(line);
+        let mut rest = plain.as_slice();
         let mut cells = 0;
         let mut node = false;
         while let Some((glyph, next)) = cell(rest) {
@@ -33,6 +34,9 @@ pub fn strip(bytes: &[u8]) -> Result<Vec<u8>, String> {
         }
         rest = line;
         for _ in 0..column {
+            while let Some(next) = super::ansi::prefix(rest) {
+                rest = next;
+            }
             if rest == b"\n" || rest.is_empty() {
                 break;
             }

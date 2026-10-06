@@ -78,6 +78,14 @@ impl<'a> Renderer<'a> {
         self.finish()
     }
 
+    pub fn patch_line(&mut self, line: &[u8], first: bool) -> io::Result<()> {
+        if first {
+            self.line(b"")?;
+        }
+        self.out.write_all(self.prefixes.next_line(line == b"\n"))?;
+        self.out.write_all(line)
+    }
+
     fn finish(&mut self) -> io::Result<()> {
         for prefix in self.prefixes.leftover() {
             write_line(self.out, prefix, b"")?;
@@ -114,6 +122,45 @@ mod tests {
 
         fn flush(&mut self) -> io::Result<()> {
             Ok(())
+        }
+    }
+
+    #[test]
+    fn patch_bytes_and_every_partial_write_are_preserved() {
+        let record = header::tests::record();
+        let patch = b"diff --git a/x b/x\n+\xff \t\n\n\x1b[32m+text\x1b[m\nlast";
+        let mut out = Vec::new();
+        let mut renderer = Renderer::new(&mut out, None, HashSet::new());
+        renderer.commit(&record).unwrap();
+        let mut first = true;
+        for line in patch.split_inclusive(|&byte| byte == b'\n') {
+            renderer.patch_line(line, first).unwrap();
+            first = false;
+        }
+        assert!(
+            out.ends_with(
+                b"\n   diff --git a/x b/x\n   +\xff \t\n\n   \x1b[32m+text\x1b[m\n   last"
+            )
+        );
+        for kind in [io::ErrorKind::Other, io::ErrorKind::BrokenPipe] {
+            for count in 0..=out.len() {
+                let mut writer = FailAfter(count, kind);
+                let mut renderer = Renderer::new(&mut writer, None, HashSet::new());
+                let result = (|| {
+                    renderer.commit(&record)?;
+                    let mut first = true;
+                    for line in patch.split_inclusive(|&byte| byte == b'\n') {
+                        renderer.patch_line(line, first)?;
+                        first = false;
+                    }
+                    Ok::<_, io::Error>(())
+                })();
+                if count == out.len() {
+                    result.unwrap();
+                } else {
+                    assert_eq!(result.unwrap_err().kind(), kind);
+                }
+            }
         }
     }
 

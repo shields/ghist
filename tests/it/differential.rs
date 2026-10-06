@@ -107,6 +107,11 @@ mod tests {
                         .map_err(|error| TestCaseError::fail(error.to_string()))?;
                     oracle::fuller(&repo, &["HEAD", "--", "file0"])
                         .map_err(|error| TestCaseError::fail(error.to_string()))?;
+                    for color in ["never", "always"] {
+                        repo.git(["config", "color.diff", color]).unwrap();
+                        crate::common::patches::compare(&repo, &args)
+                            .map_err(|error| TestCaseError::fail(error.to_string()))?;
+                    }
                     Ok(())
                 })
                 .unwrap_or_else(|error| panic!("case {case} ({format}): {error}"));

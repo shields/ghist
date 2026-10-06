@@ -48,7 +48,8 @@ colon-separated list of repositories to compare their full histories too.
 | SHA-1 and SHA-256, unique-prefix dimming            | T      | `tests/it/colors.rs`, independent object-neighbor comparison |
 | Headers, mailmap, dates, decorations, message bytes | T      | `render::*::tests`, `tests/it/headers.rs`                    |
 | Graph edges, lane colors, ranges, compaction        | T      | `graph::*::tests`, graph oracle, colors, and ranges          |
-| Patches, stats, binary sizes, width                 | G      | Diff implementation pending                                  |
+| Patches                                             | T      | `tests/it/diffs.rs`                                          |
+| Stats, binary sizes and width                       | G      | Stat implementation pending                                  |
 | Pager environment, exit statuses and stderr         | T      | `tests/it/paging.rs`                                         |
 | Signals and cancellation                            | T      | `tests/it/signals.rs`                                        |
 | Repository mutations during a run                   | U      | Subprocesses may observe different repository states         |
@@ -180,3 +181,11 @@ TAB, which have separate message/framing cases.
 | Signal cleanup closes pager stdin and waits for its exit                             | T      | Pager EOF and release handshake                                        |
 | Cancellation interrupts empty reads and full writes without changing inherited flags | T      | `signal::tests`                                                        |
 | Signals arriving during error reporting retain their signal status                   | T      | `signals_arriving_while_reporting_errors_are_preserved`                |
+
+## Patches and stats
+
+| Case                                                                                              | Status | Evidence                                                             |
+| ------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- |
+| Patch bytes survive graph prefixes, including SGR, invalid UTF-8, whitespace and missing final LF | T      | `tests/it/diffs.rs`, renderer partial-write checks                   |
+| Plain and colored patches match Git under four diff algorithms and moved-line color               | T      | `patches_match_git_with_colors_algorithms_renames_and_root_settings` |
+| Merge, root, range and path-limited patch behavior follows Git                                    | T      | Fixture and generated differential comparisons                       |

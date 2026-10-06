@@ -22,4 +22,5 @@ pub mod history;
 pub mod oracle;
 #[cfg(all(test, not(coverage_nightly)))]
 pub mod parse;
+pub mod patches;
 pub mod repo;

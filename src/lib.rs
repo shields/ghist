@@ -114,9 +114,24 @@ fn log(
         let mut writer = out::Shared(&output);
         let mut renderer = render::Renderer::new(&mut writer, palette.as_ref(), hidden);
         let mut flush = || output.borrow_mut().flush();
-        let walked = git::log::walk(ctx, args, mailmap, color, &mut flush, &mut |record, _| {
-            Ok(renderer.commit(&record)?)
-        });
+        let walked = git::log::walk(
+            ctx,
+            args,
+            mailmap,
+            color,
+            &mut flush,
+            &mut |record, reader| {
+                renderer.commit(&record)?;
+                if args.patch && !args.stat {
+                    let mut first = true;
+                    while let Some(line) = reader.diff_line()? {
+                        renderer.patch_line(line, first)?;
+                        first = false;
+                    }
+                }
+                Ok(())
+            },
+        );
         let finished = output.borrow_mut().finish();
         match walked {
             Ok(warnings) => stderr.extend(warnings),

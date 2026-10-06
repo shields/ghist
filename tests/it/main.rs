@@ -17,6 +17,7 @@ mod common;
 mod config;
 #[cfg(not(coverage_nightly))]
 mod differential;
+mod diffs;
 mod errors;
 #[cfg(not(coverage_nightly))]
 mod exhaustive;

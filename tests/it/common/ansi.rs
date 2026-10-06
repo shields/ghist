@@ -15,20 +15,23 @@
 pub fn strip(mut bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
     while let Some((&byte, rest)) = bytes.split_first() {
-        if let Some(parameters) = bytes.strip_prefix(b"\x1b[") {
-            let end = parameters
-                .iter()
-                .take_while(|byte| byte.is_ascii_digit() || **byte == b';')
-                .count();
-            if parameters.get(end) == Some(&b'm') {
-                bytes = parameters.get(end + 1..).unwrap_or_default();
-                continue;
-            }
+        if let Some(rest) = prefix(bytes) {
+            bytes = rest;
+            continue;
         }
         out.push(byte);
         bytes = rest;
     }
     out
+}
+
+pub fn prefix(bytes: &[u8]) -> Option<&[u8]> {
+    let parameters = bytes.strip_prefix(b"\x1b[")?;
+    let end = parameters
+        .iter()
+        .take_while(|byte| byte.is_ascii_digit() || **byte == b';')
+        .count();
+    (parameters.get(end) == Some(&b'm')).then(|| parameters.get(end + 1..).unwrap_or_default())
 }
 
 #[cfg(test)]
