@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: build install test lint fmt coverage print-nightly run clean publish publish-dry-run
+.PHONY: build install test lint fmt coverage print-nightly run clean publish publish-dry-run bench
 
 NIGHTLY := nightly-2026-10-06
 PRETTIER ?= bunx --no-install prettier
+
+export BENCH_REPO ?= .
+export BENCH_REV ?= HEAD~100..HEAD
+export GHIST_BIN := $(CURDIR)/target/release/ghist
 
 build:
 	cargo build --release
@@ -58,3 +62,17 @@ publish publish-dry-run:
 	cd "$$tmp"; \
 	CARGO_TARGET_DIR="$$src/target" cargo check --quiet; \
 	CARGO_TARGET_DIR="$$src/target" cargo publish $(if $(findstring dry,$@),--dry-run,)
+
+bench: build
+	hyperfine --warmup 3 --runs 10 \
+		--command-name 'ghist: first page' 'cd "$$BENCH_REPO" && "$$GHIST_BIN" | head -n 40 >/dev/null' \
+		--command-name 'git: first page' 'cd "$$BENCH_REPO" && git --no-pager log --graph --pretty=fuller --topo-order | head -n 40 >/dev/null'
+	hyperfine --warmup 3 --runs 10 \
+		--command-name 'ghist: full history' 'cd "$$BENCH_REPO" && "$$GHIST_BIN" >/dev/null' \
+		--command-name 'git: full history' 'cd "$$BENCH_REPO" && git --no-pager log --graph --pretty=fuller --topo-order >/dev/null'
+	hyperfine --warmup 3 --runs 10 \
+		--command-name 'ghist: patches' 'cd "$$BENCH_REPO" && "$$GHIST_BIN" -p "$$BENCH_REV" >/dev/null' \
+		--command-name 'git: patches' 'cd "$$BENCH_REPO" && git --no-pager log --graph --pretty=fuller --topo-order --no-diff-merges -p "$$BENCH_REV" >/dev/null'
+	hyperfine --warmup 3 --runs 10 \
+		--command-name 'ghist: stats' 'cd "$$BENCH_REPO" && "$$GHIST_BIN" --stat "$$BENCH_REV" >/dev/null' \
+		--command-name 'git: stats' 'cd "$$BENCH_REPO" && git --no-pager log --graph --pretty=fuller --topo-order --no-diff-merges --stat "$$BENCH_REV" >/dev/null'
