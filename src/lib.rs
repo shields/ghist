@@ -63,8 +63,9 @@ fn execute(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Result<()
             let mailmap = config.boolean(b"log.mailmap", true)?;
             color::validate(&config)?;
             let color = color::want_color(ctx, &config, false)?;
+            let palette = color.then(|| color::Palette::read(&config)).transpose()?;
             err.write_all(&stderr)?;
-            let mut renderer = render::Renderer::new(out);
+            let mut renderer = render::Renderer::new(out, palette.as_ref());
             let stderr = git::log::walk(ctx, &args, mailmap, color, &mut |record, _| {
                 Ok(renderer.commit(&record)?)
             })?;

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod ansi;
 pub mod env;
 pub mod history;
 #[cfg(all(test, not(coverage_nightly)))]

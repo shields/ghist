@@ -135,3 +135,12 @@ TAB, which have separate message/framing cases.
 | Invalid header, decoration, diff and graph colors with color disabled         | T      | Configuration and subprocess checks         |
 | Numeric Git booleans with a leading vertical tab                              | T      | Unit and real Git comparisons               |
 | Invalid color booleans identify the selected setting and alias                | T      | Diagnostic regression cases                 |
+
+## Header colors and hash uniqueness
+
+| Case                                                                      | Status | Coverage                                                                  |
+| ------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------- |
+| Configured commit colors agree with Git's parser                          | T      | Named, indexed, RGB and attribute comparisons                             |
+| Hash dimming starts at the shortest unique prefix among all objects       | T      | Independent sorted-neighbor check with 3,000 blobs in both object formats |
+| HEAD, branches, remotes, tags, stash, grafted and replaced decorations    | T      | Exact escape-sequence goldens                                             |
+| Merge parent prefixes, full-length uniqueness and empty configured colors | T      | Header goldens and stripped-color equality                                |

@@ -234,6 +234,42 @@ pub fn validate(config: &Config) -> Result<(), Error> {
     Ok(())
 }
 
+#[derive(Debug)]
+pub struct Palette {
+    pub commit: Sgr,
+    pub head: Sgr,
+    pub branch: Sgr,
+    pub remote: Sgr,
+    pub tag: Sgr,
+    pub stash: Sgr,
+    pub grafted: Sgr,
+}
+
+impl Palette {
+    pub fn read(config: &Config) -> Result<Self, Error> {
+        let color = |key: &[u8], default: &[u8]| {
+            config.last(&[key]).map_or_else(
+                || Ok(Sgr(default.to_vec())),
+                |value| {
+                    value.bytes().and_then(parse).ok_or_else(|| Error::Config {
+                        key: key.to_vec(),
+                        value: value.bytes().map(<[u8]>::to_vec),
+                    })
+                },
+            )
+        };
+        Ok(Self {
+            commit: color(b"color.diff.commit", b"\x1b[33m")?,
+            head: color(b"color.decorate.head", b"\x1b[1;36m")?,
+            branch: color(b"color.decorate.branch", b"\x1b[1;32m")?,
+            remote: color(b"color.decorate.remotebranch", b"\x1b[1;31m")?,
+            tag: color(b"color.decorate.tag", b"\x1b[1;33m")?,
+            stash: color(b"color.decorate.stash", b"\x1b[1;35m")?,
+            grafted: color(b"color.decorate.grafted", b"\x1b[1;34m")?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

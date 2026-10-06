@@ -18,16 +18,22 @@ mod width;
 
 use std::io::{self, Write};
 
+use crate::color::Palette;
 use crate::git::log::Record;
 
 pub struct Renderer<'a> {
     out: &'a mut dyn Write,
     first: bool,
+    colors: Option<&'a Palette>,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(out: &'a mut dyn Write) -> Self {
-        Self { out, first: true }
+    pub fn new(out: &'a mut dyn Write, colors: Option<&'a Palette>) -> Self {
+        Self {
+            out,
+            first: true,
+            colors,
+        }
     }
 
     pub fn commit(&mut self, record: &Record) -> io::Result<()> {
@@ -35,7 +41,7 @@ impl<'a> Renderer<'a> {
             self.line(b"")?;
         }
         self.first = false;
-        for line in header::lines(record) {
+        for line in header::lines(record, self.colors) {
             self.line(&line)?;
         }
         let message = message::lines(&record.message);
@@ -81,14 +87,14 @@ mod tests {
         let mut empty = header::tests::record();
         empty.message.clear();
         let mut out = Vec::new();
-        let mut renderer = Renderer::new(&mut out);
+        let mut renderer = Renderer::new(&mut out, None);
         renderer.commit(&record).unwrap();
         renderer.commit(&empty).unwrap();
         assert!(out.windows(14).any(|part| part == b"    body\n\nsha1"));
         assert!(!out.ends_with(b"\n\n"));
         for count in 0..out.len() {
             let mut writer = FailAfter(count);
-            let mut renderer = Renderer::new(&mut writer);
+            let mut renderer = Renderer::new(&mut writer, None);
             let error = renderer
                 .commit(&record)
                 .and_then(|()| renderer.commit(&empty))
