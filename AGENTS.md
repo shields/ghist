@@ -54,3 +54,5 @@ Before every commit:
 Before closing each implementation milestone, run
 `PROPTEST_CASES=1024 make test`. Keep each change and its tests together. Do not
 push without a request.
+
+Commit messages describe changes and rationale; omit routine test-run summaries.

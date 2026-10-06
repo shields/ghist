@@ -48,3 +48,17 @@ alone does not establish that ghist handles a case correctly.
 | Pager environment, exit statuses, stderr, signals   | G      | Process lifecycle implementation pending             |
 | Repository mutations during a run                   | U      | Subprocesses may observe different repository states |
 | Ambiguous-width Unicode terminals                   | U      | Display cell widths depend on the terminal           |
+
+## Fixture construction
+
+These tests verify the inputs used by the integration harness. The application
+behavior entries above stay marked as gaps until ghist itself is tested.
+
+| Dimension                                                               | Status | Evidence                                              |
+| ----------------------------------------------------------------------- | ------ | ----------------------------------------------------- |
+| SHA-1 and SHA-256 histories from one fast-import stream                 | T      | `tests/it/fixtures.rs`                                |
+| Message bytes, NUL, invalid UTF-8, Latin-1 encoding                     | T      | `imports_byte_exact_histories_in_both_object_formats` |
+| Binary data, byte paths, renames, deletions, symlinks, executable modes | T      | `imports_byte_exact_histories_in_both_object_formats` |
+| Tags, remote refs, independent roots, ordered octopus parents           | T      | `tests/it/fixtures.rs`                                |
+| Shallow clones, stash, replace refs, mailmap                            | T      | `supports_shallow_stash_replace_and_mailmap_fixtures` |
+| Allowlisted process environment and Git setup failures                  | T      | `isolates_environment_and_git_failures`               |
