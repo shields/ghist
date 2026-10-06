@@ -266,21 +266,21 @@ esac
                 "{mode}: {err:?}"
             );
         }
-        for mode in ["normal", "failed"] {
+        for (mode, extra) in [
+            ("normal", "size warning\n"),
+            ("failed", "size failed\n"),
+            ("closed", ""),
+        ] {
             let (_repo, mut ctx) = fake_sizes(diff, mode);
             ctx.env.push(("LOG_STATUS".into(), "6".into()));
             ctx.env.push(("WARNING".into(), "size warning".into()));
             let mut err = Vec::new();
             assert_eq!(
                 ghist::run(&ctx, &mut Vec::new(), &mut err),
-                ghist::Exit::Code(6)
+                ghist::Exit::Code(6),
+                "{mode}: {err:?}"
             );
-            let extra = if mode == "normal" {
-                "size warning"
-            } else {
-                "size failed"
-            };
-            assert_eq!(err, format!("{extra}\nwalk failed\n").as_bytes());
+            assert_eq!(err, format!("{extra}walk failed\n").as_bytes());
         }
     }
 
