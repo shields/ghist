@@ -112,6 +112,19 @@ mod tests {
                         crate::common::patches::compare(&repo, &args)
                             .map_err(|error| TestCaseError::fail(error.to_string()))?;
                     }
+                    repo.git([
+                        "config",
+                        "color.diff",
+                        if case % 2 == 0 { "never" } else { "always" },
+                    ])
+                    .unwrap();
+                    let stat_compare = if case % 2 == 0 {
+                        crate::common::stats::compare
+                    } else {
+                        crate::common::stats::combined
+                    };
+                    stat_compare(&repo, &args, 20 + usize::try_from(case % 181).unwrap())
+                        .map_err(|error| TestCaseError::fail(error.to_string()))?;
                     Ok(())
                 })
                 .unwrap_or_else(|error| panic!("case {case} ({format}): {error}"));

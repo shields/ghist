@@ -31,7 +31,7 @@ pub fn git_bool(value: Option<&[u8]>) -> Option<bool> {
     }
 }
 
-fn git_int(value: &[u8]) -> Option<i32> {
+pub fn git_int(value: &[u8]) -> Option<i32> {
     let value = std::str::from_utf8(value)
         .ok()?
         .trim_start_matches(|c: char| c.is_ascii_whitespace() || c == '\u{b}');

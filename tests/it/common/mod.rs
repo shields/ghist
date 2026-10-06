@@ -24,3 +24,5 @@ pub mod oracle;
 pub mod parse;
 pub mod patches;
 pub mod repo;
+
+pub mod stats;

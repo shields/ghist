@@ -271,6 +271,8 @@ pub struct Palette {
     pub stash: Sgr,
     pub grafted: Sgr,
     pub graph: Vec<Sgr>,
+    pub new: Sgr,
+    pub old: Sgr,
 }
 
 impl Palette {
@@ -295,6 +297,8 @@ impl Palette {
             stash: color(b"color.decorate.stash", b"\x1b[1;35m")?,
             grafted: color(b"color.decorate.grafted", b"\x1b[1;34m")?,
             graph: graph_colors(config)?,
+            new: color(b"color.diff.new", b"\x1b[32m")?,
+            old: color(b"color.diff.old", b"\x1b[31m")?,
         })
     }
 }

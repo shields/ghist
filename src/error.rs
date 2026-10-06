@@ -22,6 +22,7 @@ use crate::Exit;
 pub enum Error {
     Usage(OsString),
     Io(io::Error),
+    ChildIo(io::Error),
     Protocol(&'static str),
     Config {
         key: Vec<u8>,
@@ -74,7 +75,7 @@ impl Error {
     pub const fn exit(&self) -> Exit {
         match self {
             Self::Usage(_) => Exit::Code(2),
-            Self::Io(_) | Self::Protocol(_) => Exit::Code(1),
+            Self::Io(_) | Self::ChildIo(_) | Self::Protocol(_) => Exit::Code(1),
             Self::Config { .. } => Exit::Code(128),
             Self::Git { exit, .. } | Self::Pager(exit) => *exit,
             Self::WithStderr { error, .. } => error.exit(),
@@ -91,6 +92,7 @@ impl fmt::Display for Error {
                 arg.to_string_lossy()
             ),
             Self::Io(error) => error.fmt(f),
+            Self::ChildIo(error) => write!(f, "git input: {error}"),
             Self::WithStderr { error, .. } => error.fmt(f),
             Self::Pager(exit) => write!(f, "pager failed: {exit:?}"),
             Self::Protocol(message) => write!(f, "invalid git output: {message}"),
@@ -110,7 +112,7 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Io(error) => Some(error),
+            Self::Io(error) | Self::ChildIo(error) => Some(error),
             Self::WithStderr { error, .. } => Some(error),
             Self::Usage(_)
             | Self::Protocol(_)
@@ -132,6 +134,15 @@ mod tests {
     use std::error::Error as _;
 
     use super::*;
+
+    #[test]
+    fn child_pipe_errors_are_not_quiet_stdout_failures() {
+        let error = Error::ChildIo(io::ErrorKind::BrokenPipe.into());
+        assert!(!error.is_broken_pipe());
+        assert_eq!(error.exit(), Exit::Code(1));
+        assert!(error.to_string().starts_with("git input: "));
+        assert!(error.source().is_some());
+    }
 
     #[test]
     fn usage_error() {

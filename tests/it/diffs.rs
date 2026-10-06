@@ -18,6 +18,7 @@ mod tests {
         history::{Change, Commit, History},
         patches,
         repo::TestRepo,
+        stats,
     };
 
     fn write(path: &[u8], data: &[u8]) -> Change {
@@ -95,6 +96,7 @@ mod tests {
                     repo.git(["config", "diff.colorMoved", "zebra"]).unwrap();
                     for args in [vec![], vec!["HEAD~2..HEAD"], vec!["HEAD", "--", "text"]] {
                         patches::compare(&repo, &args).unwrap();
+                        stats::combined(&repo, &args, 80).unwrap();
                     }
                 }
                 repo.git(["config", "log.showRoot", "false"]).unwrap();

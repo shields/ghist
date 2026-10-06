@@ -14,6 +14,7 @@
 
 mod header;
 mod message;
+pub mod stat;
 mod width;
 
 use std::collections::HashSet;
@@ -32,6 +33,7 @@ pub struct Renderer<'a> {
     graph: Graph<Oid>,
     prefixes: Prefixes,
     hidden: HashSet<Oid>,
+    column: usize,
 }
 
 impl<'a> Renderer<'a> {
@@ -47,6 +49,7 @@ impl<'a> Renderer<'a> {
             ),
             prefixes: Prefixes::default(),
             hidden,
+            column: 0,
         }
     }
 
@@ -61,10 +64,10 @@ impl<'a> Renderer<'a> {
             .map(|parent| parent.oid)
             .filter(|oid| !self.hidden.contains(oid))
             .collect();
-        self.prefixes.paint(
-            self.graph.next(&record.oid, &parents),
-            self.colors.map(|palette| palette.graph.as_slice()),
-        );
+        let shape = self.graph.next(&record.oid, &parents);
+        self.column = shape.text_column();
+        self.prefixes
+            .paint(shape, self.colors.map(|palette| palette.graph.as_slice()));
         for line in header::lines(record, self.colors) {
             self.line(&line)?;
         }
@@ -76,6 +79,25 @@ impl<'a> Renderer<'a> {
             }
         }
         self.finish()
+    }
+
+    pub fn stat(
+        &mut self,
+        files: &[crate::git::stat::File],
+        options: stat::Options,
+        patch: bool,
+    ) -> Result<(), crate::error::Error> {
+        if !files.is_empty() {
+            self.line(if patch { b"---" } else { b"" })?;
+        }
+        let colors = self.colors;
+        stat::render(
+            files,
+            options.columns.saturating_sub(self.column),
+            options,
+            colors,
+            &mut |line| self.line(line),
+        )
     }
 
     pub fn patch_line(&mut self, line: &[u8], first: bool) -> io::Result<()> {
@@ -159,6 +181,47 @@ mod tests {
                     result.unwrap();
                 } else {
                     assert_eq!(result.unwrap_err().kind(), kind);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn stat_prefixes_and_every_partial_write_are_preserved() {
+        let record = header::tests::record();
+        let files = [crate::git::stat::File {
+            name: b"file".to_vec(),
+            change: crate::git::stat::Change::Text {
+                added: 2,
+                deleted: 1,
+            },
+        }];
+        let options = stat::Options::read(
+            &crate::Context::default(),
+            &crate::git::config::Config::parse(b"").unwrap(),
+        )
+        .unwrap();
+        let mut out = Vec::new();
+        let mut renderer = Renderer::new(&mut out, None, HashSet::new());
+        renderer.commit(&record).unwrap();
+        renderer.stat(&files, options, false).unwrap();
+        assert!(out.ends_with(
+            b"\n    file | 3 ++-\n    1 file changed, 2 insertions(+), 1 deletion(-)\n"
+        ));
+        for kind in [io::ErrorKind::Other, io::ErrorKind::BrokenPipe] {
+            for count in 0..=out.len() {
+                let mut writer = FailAfter(count, kind);
+                let mut renderer = Renderer::new(&mut writer, None, HashSet::new());
+                let result = (|| {
+                    renderer.commit(&record)?;
+                    renderer.stat(&files, options, false)
+                })();
+                if count == out.len() {
+                    result.unwrap();
+                } else {
+                    let error = result.unwrap_err();
+                    assert_eq!(error.to_string(), "output failed");
+                    assert_eq!(error.is_broken_pipe(), kind == io::ErrorKind::BrokenPipe);
                 }
             }
         }

@@ -34,3 +34,5 @@ mod signals;
 
 #[cfg(not(coverage_nightly))]
 mod properties;
+
+mod stats;

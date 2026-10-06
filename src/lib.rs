@@ -108,6 +108,8 @@ fn log(
         } else {
             None
         };
+        let stat_options = render::stat::Options::read(ctx, &config)?;
+        let mut sizes = git::catfile::Sizes::new(ctx);
         let (hidden, warnings) = git::revs::hidden(ctx, args)?;
         stderr.extend(warnings);
         let output = RefCell::new(out::Output::new(ctx, out, pager));
@@ -122,8 +124,14 @@ fn log(
             &mut flush,
             &mut |record, reader| {
                 renderer.commit(&record)?;
-                if args.patch && !args.stat {
-                    let mut first = true;
+                if args.stat {
+                    let mut flush_sizes = || output.borrow_mut().flush();
+                    let files =
+                        git::stat::read(reader, &mut |hash| sizes.get(hash, &mut flush_sizes))?;
+                    renderer.stat(&files, stat_options, args.patch)?;
+                }
+                if args.patch {
+                    let mut first = !args.stat;
                     while let Some(line) = reader.diff_line()? {
                         renderer.patch_line(line, first)?;
                         first = false;
@@ -132,7 +140,16 @@ fn log(
                 Ok(())
             },
         );
+        let size_result = sizes.finish(output.borrow().has_failed());
         let finished = output.borrow_mut().finish();
+        if let Err(error @ error::Error::Git { .. }) = walked {
+            match size_result {
+                Ok(warnings) => stderr.extend(warnings),
+                Err(other) => other.report(&mut stderr)?,
+            }
+            return Err(error);
+        }
+        stderr.extend(size_result?);
         match walked {
             Ok(warnings) => stderr.extend(warnings),
             Err(error) => {

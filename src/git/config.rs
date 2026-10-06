@@ -93,6 +93,18 @@ impl Config {
         })
     }
 
+    pub fn integer(&self, key: &[u8], default: i32) -> Result<i32, Error> {
+        self.last(&[key]).map_or(Ok(default), |value| {
+            value
+                .bytes()
+                .and_then(crate::env::git_int)
+                .ok_or_else(|| Error::Config {
+                    key: key.to_vec(),
+                    value: value.bytes().map(<[u8]>::to_vec),
+                })
+        })
+    }
+
     pub fn last(&self, keys: &[&[u8]]) -> Option<&Value> {
         self.last_entry(keys).map(|(_, value)| value)
     }

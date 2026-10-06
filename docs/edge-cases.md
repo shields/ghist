@@ -49,7 +49,7 @@ colon-separated list of repositories to compare their full histories too.
 | Headers, mailmap, dates, decorations, message bytes | T      | `render::*::tests`, `tests/it/headers.rs`                    |
 | Graph edges, lane colors, ranges, compaction        | T      | `graph::*::tests`, graph oracle, colors, and ranges          |
 | Patches                                             | T      | `tests/it/diffs.rs`                                          |
-| Stats, binary sizes and width                       | G      | Stat implementation pending                                  |
+| Stats, binary sizes and width                       | T      | `tests/it/stats.rs`                                          |
 | Pager environment, exit statuses and stderr         | T      | `tests/it/paging.rs`                                         |
 | Signals and cancellation                            | T      | `tests/it/signals.rs`                                        |
 | Repository mutations during a run                   | U      | Subprocesses may observe different repository states         |
@@ -184,8 +184,17 @@ TAB, which have separate message/framing cases.
 
 ## Patches and stats
 
-| Case                                                                                              | Status | Evidence                                                             |
-| ------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- |
-| Patch bytes survive graph prefixes, including SGR, invalid UTF-8, whitespace and missing final LF | T      | `tests/it/diffs.rs`, renderer partial-write checks                   |
-| Plain and colored patches match Git under four diff algorithms and moved-line color               | T      | `patches_match_git_with_colors_algorithms_renames_and_root_settings` |
-| Merge, root, range and path-limited patch behavior follows Git                                    | T      | Fixture and generated differential comparisons                       |
+| Case                                                                                                   | Status | Evidence                                                                   |
+| ------------------------------------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------------- |
+| Patch bytes survive graph prefixes, including SGR, invalid UTF-8, whitespace and missing final LF      | T      | `tests/it/diffs.rs`, renderer partial-write checks                         |
+| Plain and colored patches match Git under four diff algorithms and moved-line color                    | T      | `patches_match_git_with_colors_algorithms_renames_and_root_settings`       |
+| Merge, root, range and path-limited patch behavior follows Git                                         | T      | Fixture and generated differential comparisons                             |
+| Stats match Git at widths 20–200 in both object formats                                                | T      | `tests/it/stats.rs`, generated histories                                   |
+| Filename quoting, Unicode, renames, configured name/bar widths (including negative widths) and scaling | T      | Stat comparisons and layout goldens                                        |
+| Binary sizes are queried lazily; missing and unchanged sides never trigger lookups                     | T      | Fake-Git lookup capture                                                    |
+| Mode-only and deletion-only stats preserve zero counts and summary grammar                             | T      | Git stat comparisons                                                       |
+| Malformed size responses, broken cat-file input, and Git failure precedence remain errors              | T      | `size_failures_preserve_exit_status_diagnostics_and_walk_error_precedence` |
+| Output failure stops a pending binary-size lookup                                                      | T      | `output_failure_stops_a_pending_size_lookup`                               |
+| Invalid width configuration and numeric overflow fail loudly                                           | T      | Parser/layout units and width integration checks                           |
+| Combined patch and stat output uses --- and preserves the stat/patch separator                         | T      | `combined_stats_and_patches_match_git`, generated histories                |
+| Combined output retains byte-exact colored patches across algorithms and path filters                  | T      | `tests/it/diffs.rs`                                                        |

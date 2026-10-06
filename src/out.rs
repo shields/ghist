@@ -30,6 +30,10 @@ pub struct Output<'a> {
 }
 
 impl<'a> Output<'a> {
+    pub const fn has_failed(&self) -> bool {
+        self.failed
+    }
+
     pub fn new(ctx: &'a Context, stdout: &'a mut dyn Write, command: Option<OsString>) -> Self {
         Self {
             ctx,

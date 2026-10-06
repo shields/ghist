@@ -13,9 +13,11 @@
 // limitations under the License.
 
 pub mod buffer;
+pub mod catfile;
 pub mod config;
 pub mod log;
 pub mod revs;
+pub mod stat;
 #[cfg(all(test, not(coverage_nightly)))]
 mod stream_fuzz;
 
@@ -74,6 +76,10 @@ impl Process {
             stdout,
             stderr,
         })
+    }
+
+    pub fn input(&mut self) -> Result<Pipe, Error> {
+        Pipe::new(pipe(self.child.0.stdin.take())?.into(), &self.signal).map_err(Error::from)
     }
 
     pub fn stop(mut self) -> Result<Vec<u8>, Error> {
