@@ -31,6 +31,7 @@ pub enum Error {
         exit: Exit,
         stderr: Vec<u8>,
     },
+    Pager(Exit),
     WithStderr {
         error: Box<Self>,
         stderr: Vec<u8>,
@@ -38,6 +39,14 @@ pub enum Error {
 }
 
 impl Error {
+    pub fn is_broken_pipe(&self) -> bool {
+        match self {
+            Self::Io(error) => error.kind() == io::ErrorKind::BrokenPipe,
+            Self::WithStderr { error, .. } => error.is_broken_pipe(),
+            _ => false,
+        }
+    }
+
     pub fn with_stderr(self, stderr: Vec<u8>) -> Self {
         if stderr.is_empty() {
             self
@@ -52,6 +61,7 @@ impl Error {
     pub fn report(&self, err: &mut dyn Write) -> io::Result<()> {
         match self {
             Self::Git { stderr, .. } => err.write_all(stderr)?,
+            Self::Pager(_) => {}
             Self::WithStderr { error, stderr } => {
                 err.write_all(stderr)?;
                 return error.report(err);
@@ -66,7 +76,7 @@ impl Error {
             Self::Usage(_) => Exit::Code(2),
             Self::Io(_) | Self::Protocol(_) => Exit::Code(1),
             Self::Config { .. } => Exit::Code(128),
-            Self::Git { exit, .. } => *exit,
+            Self::Git { exit, .. } | Self::Pager(exit) => *exit,
             Self::WithStderr { error, .. } => error.exit(),
         }
     }
@@ -82,6 +92,7 @@ impl fmt::Display for Error {
             ),
             Self::Io(error) => error.fmt(f),
             Self::WithStderr { error, .. } => error.fmt(f),
+            Self::Pager(exit) => write!(f, "pager failed: {exit:?}"),
             Self::Protocol(message) => write!(f, "invalid git output: {message}"),
             Self::Config { key, value } => write!(
                 f,
@@ -101,7 +112,11 @@ impl std::error::Error for Error {
         match self {
             Self::Io(error) => Some(error),
             Self::WithStderr { error, .. } => Some(error),
-            Self::Usage(_) | Self::Protocol(_) | Self::Config { .. } | Self::Git { .. } => None,
+            Self::Usage(_)
+            | Self::Protocol(_)
+            | Self::Config { .. }
+            | Self::Git { .. }
+            | Self::Pager(_) => None,
         }
     }
 }
@@ -129,6 +144,7 @@ mod tests {
     #[test]
     fn subprocess_and_configuration_errors() {
         for error in [
+            Error::Pager(Exit::Code(42)),
             Error::Protocol("framing"),
             Error::Config {
                 key: b"log.mailmap".to_vec(),
@@ -144,6 +160,7 @@ mod tests {
             },
         ] {
             assert!(error.source().is_none());
+            assert!(!error.is_broken_pipe());
             assert_ne!(error.to_string(), "");
             let mut err = Vec::new();
             error.report(&mut err).unwrap();
@@ -152,6 +169,13 @@ mod tests {
                 assert_eq!(err, b"failure\xff\n");
             }
         }
+    }
+
+    #[test]
+    fn broken_pipe_detection_preserves_diagnostic_wrappers() {
+        let error = Error::Io(io::ErrorKind::BrokenPipe.into()).with_stderr(b"warning\n".to_vec());
+        assert!(error.is_broken_pipe());
+        assert!(!Error::Io(io::Error::other("failure")).is_broken_pipe());
     }
 
     #[test]

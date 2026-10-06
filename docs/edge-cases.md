@@ -49,7 +49,8 @@ colon-separated list of repositories to compare their full histories too.
 | Headers, mailmap, dates, decorations, message bytes | T      | `render::*::tests`, `tests/it/headers.rs`                    |
 | Graph edges, lane colors, ranges, compaction        | T      | `graph::*::tests`, graph oracle, colors, and ranges          |
 | Patches, stats, binary sizes, width                 | G      | Diff implementation pending                                  |
-| Pager environment, exit statuses, stderr, signals   | G      | Process lifecycle implementation pending                     |
+| Pager environment, exit statuses and stderr         | T      | `tests/it/paging.rs`                                         |
+| Signals and cancellation                            | G      | Signal lifecycle implementation pending                      |
 | Repository mutations during a run                   | U      | Subprocesses may observe different repository states         |
 | Ambiguous-width Unicode terminals                   | U      | Display cell widths depend on the terminal                   |
 
@@ -163,3 +164,12 @@ TAB, which have separate message/framing cases.
 | Path-limited boundaries follow Git’s rewritten parents                           | T      | `path_limited_ranges_hide_rewritten_parents`         |
 | Ordinary revisions skip the pre-pass; Git errors preserve status and stderr      | T      | Fake-Git command counts and failure cases            |
 | Compaction moves one rightmost lane into a hole without changing edges or colors | T      | Layout goldens, exhaustive DAGs, generated histories |
+
+## Pager and output lifecycle
+
+| Case                                                                      | Status | Evidence                                                               |
+| ------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------- |
+| Pager precedence, empty and cat disablement, invalid bare core.pager      | T      | `pager::tests`, `tests/it/paging.rs`                                   |
+| Pager starts lazily, receives default environment and measured columns    | T      | `starts_lazily_and_propagates_nonzero_pager_exit`, environment capture |
+| Output flushes before an unbuffered read; diagnostics wait for pager exit | T      | `git::buffer::tests`, fake-Git handshake                               |
+| Nonzero and missing pagers preserve their exit status                     | T      | `tests/it/paging.rs`                                                   |

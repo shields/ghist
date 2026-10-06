@@ -70,10 +70,12 @@ pub fn walk(
     args: &LogArgs,
     mailmap: bool,
     color: bool,
+    flush: &mut dyn FnMut() -> io::Result<()>,
     visit: &mut Visitor<'_>,
 ) -> Result<Vec<u8>, Error> {
     let mut process = Process::spawn(&mut log_command(ctx, args, mailmap, color))?;
-    let parsed = read_records(&mut process.stdout, visit);
+    let mut reader = super::buffer::FlushReader::new(&mut process.stdout, flush);
+    let parsed = read_records(&mut reader, visit);
     let stderr = process.finish()?;
     match parsed {
         Ok(()) => Ok(stderr),

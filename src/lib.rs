@@ -19,8 +19,11 @@ mod error;
 mod git;
 mod graph;
 mod oid;
+mod out;
+mod pager;
 mod render;
 
+use std::cell::RefCell;
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::PathBuf;
@@ -59,25 +62,55 @@ fn execute(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Result<()
         args::Action::Version => {
             out.write_all(concat!("ghist ", env!("CARGO_PKG_VERSION"), "\n").as_bytes())?;
         }
-        args::Action::Log(args) => {
-            let (config, stderr) = git::config::Config::read(ctx)?;
-            let mailmap = config.boolean(b"log.mailmap", true)?;
-            color::validate(&config)?;
-            let color = color::want_color(ctx, &config, false)?;
-            let palette = color.then(|| color::Palette::read(&config)).transpose()?;
-            err.write_all(&stderr)?;
-            let (hidden, stderr) = git::revs::hidden(ctx, &args)?;
-            err.write_all(&stderr)?;
-            let mut renderer = render::Renderer::new(out, palette.as_ref(), hidden);
-            let stderr = git::log::walk(ctx, &args, mailmap, color, &mut |record, _| {
-                Ok(renderer.commit(&record)?)
-            })?;
-            err.write_all(&stderr)?;
-            err.flush()?;
-        }
+        args::Action::Log(args) => return log(ctx, &args, out, err),
     }
     out.flush()?;
     Ok(())
+}
+
+fn log(
+    ctx: &Context,
+    args: &args::LogArgs,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> Result<(), error::Error> {
+    let (config, mut stderr) = git::config::Config::read(ctx)?;
+    let result = (|| {
+        let mailmap = config.boolean(b"log.mailmap", true)?;
+        color::validate(&config)?;
+        let pager = pager::resolve(ctx, &config)?;
+        let color = color::want_color(ctx, &config, pager.is_some())?;
+        let palette = color.then(|| color::Palette::read(&config)).transpose()?;
+        let (hidden, warnings) = git::revs::hidden(ctx, args)?;
+        stderr.extend(warnings);
+        let output = RefCell::new(out::Output::new(ctx, out, pager));
+        let mut writer = out::Shared(&output);
+        let mut renderer = render::Renderer::new(&mut writer, palette.as_ref(), hidden);
+        let mut flush = || output.borrow_mut().flush();
+        let walked = git::log::walk(ctx, args, mailmap, color, &mut flush, &mut |record, _| {
+            Ok(renderer.commit(&record)?)
+        });
+        let finished = output.borrow_mut().finish();
+        match walked {
+            Ok(warnings) => stderr.extend(warnings),
+            Err(error) => {
+                if error.is_broken_pipe() {
+                    finished?;
+                }
+                return Err(error);
+            }
+        }
+        finished?;
+        Ok(())
+    })();
+    match result {
+        Ok(()) => {
+            err.write_all(&stderr)?;
+            err.flush()?;
+            Ok(())
+        }
+        Err(error) => Err(error::Error::with_stderr(error, stderr)),
+    }
 }
 
 #[cfg(test)]

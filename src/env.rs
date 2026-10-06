@@ -62,9 +62,57 @@ fn git_int(value: &[u8]) -> Option<i32> {
     i32::try_from(value).ok()
 }
 
+pub fn value<'a>(ctx: &'a crate::Context, key: &str) -> Option<&'a std::ffi::OsStr> {
+    ctx.env
+        .iter()
+        .rev()
+        .find(|(name, _)| name == key)
+        .map(|(_, value)| value.as_os_str())
+}
+
+pub fn columns(ctx: &crate::Context) -> usize {
+    value(ctx, "COLUMNS")
+        .and_then(|value| value.to_str())
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|&columns| columns > 0)
+        .or_else(|| ctx.terminal_columns.filter(|&columns| columns > 0))
+        .unwrap_or(80)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn terminal_columns_prefer_positive_environment_values() {
+        use std::os::unix::ffi::OsStringExt;
+        let mut ctx = crate::Context {
+            terminal_columns: Some(132),
+            ..crate::Context::default()
+        };
+        assert_eq!(columns(&ctx), 132);
+        ctx.env.push(("COLUMNS".into(), "95".into()));
+        assert_eq!(columns(&ctx), 95);
+        for value in [
+            b"0".as_slice(),
+            b"-1",
+            b"invalid",
+            b"",
+            b"999999999999999999999999",
+            b"\xff",
+        ] {
+            ctx.env = vec![(
+                "COLUMNS".into(),
+                std::ffi::OsString::from_vec(value.to_vec()),
+            )];
+            assert_eq!(columns(&ctx), 132);
+        }
+        ctx.env.clear();
+        ctx.terminal_columns = None;
+        assert_eq!(columns(&ctx), 80);
+        ctx.terminal_columns = Some(0);
+        assert_eq!(columns(&ctx), 80);
+    }
 
     #[test]
     fn boolean_keywords() {

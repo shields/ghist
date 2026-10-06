@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod buffer;
 pub mod config;
 pub mod log;
 pub mod revs;
@@ -104,7 +105,7 @@ fn joined(result: thread::Result<io::Result<Vec<u8>>>) -> Result<Vec<u8>, Error>
     }
 }
 
-fn exit(status: ExitStatus) -> Exit {
+pub fn exit(status: ExitStatus) -> Exit {
     status.signal().map_or_else(
         || {
             Exit::Code(
