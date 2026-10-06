@@ -23,6 +23,10 @@ limitations under the License.
 Line coverage measures exercised code; this matrix tracks behavior. A fixture
 alone does not establish that ghist handles a case correctly.
 
+The generated suites use fixed ChaCha seeds and honor `PROPTEST_CASES`. Every
+eighth generated history uses SHA-256. Set `GHIST_DIFF_REPOS` to a
+colon-separated list of repositories to compare their full histories too.
+
 ## Arguments and output errors
 
 | Dimension                                                          | Status | Evidence                                            |
@@ -108,3 +112,15 @@ TAB, which have separate message/framing cases.
 | Git output encodings and NUL-truncated messages                                | T      | `message_bytes_and_encoding_match_git_fuller`                              |
 | Commit separators and every partial output write                               | T      | `separation_empty_messages_and_every_partial_write`                        |
 | Unicode character widths and tab stops across the scalar range                 | T      | `unicode_tab_stops_match_git_across_scalar_values`                         |
+
+## Differential and generated histories
+
+| Dimension                                                                         | Status | Evidence                                                              |
+| --------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------- |
+| Commit order, identities, timezones, merge headers and messages versus Git fuller | T      | `tests/it/differential.rs`                                            |
+| All 75 DAGs with one through four commits                                         | T      | `tests/it/exhaustive.rs`                                              |
+| Message control bytes survive the oracle's blank-line normalization               | T      | `common::parse::tests`, `message_bytes_and_encoding_match_git_fuller` |
+| Framed records and diffs round-trip across generated buffer sizes                 | T      | `git::stream_fuzz::tests`                                             |
+| Arbitrary malformed byte streams terminate without panicking                      | T      | `git::stream_fuzz::tests`                                             |
+| Shallow boundaries, replacement refs, stashes and 32-parent merges                | T      | `tests/it/gaps.rs`                                                    |
+| Empty ranges, exclusions, symmetric differences and path-simplified merges        | T      | `tests/it/gaps.rs`                                                    |

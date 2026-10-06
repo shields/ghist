@@ -14,6 +14,8 @@
 
 pub mod config;
 pub mod log;
+#[cfg(all(test, not(coverage_nightly)))]
+mod stream_fuzz;
 
 use std::io::{self, BufReader, Read};
 use std::os::unix::process::ExitStatusExt;

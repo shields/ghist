@@ -14,7 +14,13 @@
 
 mod common;
 mod config;
+#[cfg(not(coverage_nightly))]
+mod differential;
 mod errors;
+#[cfg(not(coverage_nightly))]
+mod exhaustive;
 mod fixtures;
+#[cfg(not(coverage_nightly))]
+mod gaps;
 mod headers;
 mod hostile;

@@ -14,4 +14,8 @@
 
 pub mod env;
 pub mod history;
+#[cfg(all(test, not(coverage_nightly)))]
+pub mod oracle;
+#[cfg(all(test, not(coverage_nightly)))]
+pub mod parse;
 pub mod repo;

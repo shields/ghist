@@ -174,6 +174,8 @@ mod tests {
             (b"message\0truncated\n", None, "UTF-8"),
             (b"\n \t\n", None, "UTF-8"),
             (b"no final newline", None, "UTF-8"),
+            (b"form feed\x0c\nvertical tab\x0b\n", None, "UTF-8"),
+            (b"\x0c\n\x0b\nbody\n\x0c\n\x0b\n", None, "UTF-8"),
         ] {
             let repo = TestRepo::new("sha1").unwrap();
             let mut history = History::default();
@@ -203,7 +205,13 @@ mod tests {
             };
             let expected: Vec<u8> = body(reference)
                 .split(|&byte| byte == b'\n')
-                .map(<[u8]>::trim_ascii_end)
+                .map(|line| {
+                    if line == b"    " {
+                        b"".as_slice()
+                    } else {
+                        line
+                    }
+                })
                 .collect::<Vec<_>>()
                 .join(&b'\n');
             assert_eq!(body(rendered), expected, "{message:?}");

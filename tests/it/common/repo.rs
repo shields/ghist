@@ -30,6 +30,26 @@ pub struct TestRepo {
 }
 
 impl TestRepo {
+    #[cfg(not(coverage_nightly))]
+    pub fn existing(cwd: PathBuf) -> io::Result<Self> {
+        let dir = TempDir::new()?;
+        let mut env = env::isolated(dir.path());
+        env.retain(|(key, _)| key != "GIT_CONFIG_COUNT");
+        env.extend(
+            [
+                ("GIT_CONFIG_COUNT", "2"),
+                ("GIT_CONFIG_KEY_1", "color.diff"),
+                ("GIT_CONFIG_VALUE_1", "never"),
+            ]
+            .map(|(key, value)| (key.into(), value.into())),
+        );
+        Ok(Self {
+            env,
+            cwd,
+            _dir: dir,
+        })
+    }
+
     pub fn new(format: &str) -> io::Result<Self> {
         let dir = TempDir::new()?;
         let home = dir.path().join("home");
