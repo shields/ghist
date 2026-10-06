@@ -124,3 +124,14 @@ TAB, which have separate message/framing cases.
 | Arbitrary malformed byte streams terminate without panicking                      | T      | `git::stream_fuzz::tests`                                             |
 | Shallow boundaries, replacement refs, stashes and 32-parent merges                | T      | `tests/it/gaps.rs`                                                    |
 | Empty ranges, exclusions, symmetric differences and path-simplified merges        | T      | `tests/it/gaps.rs`                                                    |
+
+## Color configuration
+
+| Case                                                                          | Status | Coverage                                    |
+| ----------------------------------------------------------------------------- | ------ | ------------------------------------------- |
+| Named, bright, indexed and RGB colors; reset and positive/negative attributes | T      | Grammar and escape-order tables             |
+| Color booleans, aliases and last-value precedence                             | T      | Parser and decision tables                  |
+| TTY, pager, TERM, NO_COLOR and explicit always/never                          | T      | Environment matrix and Git argument capture |
+| Invalid header, decoration, diff and graph colors with color disabled         | T      | Configuration and subprocess checks         |
+| Numeric Git booleans with a leading vertical tab                              | T      | Unit and real Git comparisons               |
+| Invalid color booleans identify the selected setting and alias                | T      | Diagnostic regression cases                 |

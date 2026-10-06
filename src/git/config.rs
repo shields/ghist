@@ -94,11 +94,15 @@ impl Config {
     }
 
     pub fn last(&self, keys: &[&[u8]]) -> Option<&Value> {
+        self.last_entry(keys).map(|(_, value)| value)
+    }
+
+    pub fn last_entry(&self, keys: &[&[u8]]) -> Option<(&[u8], &Value)> {
         self.entries
             .iter()
             .rev()
             .find(|(key, _)| keys.contains(&key.as_slice()))
-            .map(|(_, value)| value)
+            .map(|(key, value)| (key.as_slice(), value))
     }
 }
 

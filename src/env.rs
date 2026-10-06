@@ -34,7 +34,7 @@ pub fn git_bool(value: Option<&[u8]>) -> Option<bool> {
 fn git_int(value: &[u8]) -> Option<i32> {
     let value = std::str::from_utf8(value)
         .ok()?
-        .trim_start_matches(|c: char| c.is_ascii_whitespace());
+        .trim_start_matches(|c: char| c.is_ascii_whitespace() || c == '\u{b}');
     let (value, scale) = match value.as_bytes().last() {
         Some(b'k' | b'K') => (value.get(..value.len() - 1)?, 1024),
         Some(b'm' | b'M') => (value.get(..value.len() - 1)?, 1024 * 1024),
@@ -93,6 +93,7 @@ mod tests {
             "1g",
             "1G",
             " 1",
+            "\u{b}1",
             "-2147483648",
             "2147483647",
         ] {

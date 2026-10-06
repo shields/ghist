@@ -13,6 +13,7 @@
 // limitations under the License.
 
 mod args;
+mod color;
 mod env;
 mod error;
 mod git;
@@ -60,9 +61,11 @@ fn execute(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Result<()
         args::Action::Log(args) => {
             let (config, stderr) = git::config::Config::read(ctx)?;
             let mailmap = config.boolean(b"log.mailmap", true)?;
+            color::validate(&config)?;
+            let color = color::want_color(ctx, &config, false)?;
             err.write_all(&stderr)?;
             let mut renderer = render::Renderer::new(out);
-            let stderr = git::log::walk(ctx, &args, mailmap, &mut |record, _| {
+            let stderr = git::log::walk(ctx, &args, mailmap, color, &mut |record, _| {
                 Ok(renderer.commit(&record)?)
             })?;
             err.write_all(&stderr)?;

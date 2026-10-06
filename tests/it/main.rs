@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod colors;
 mod common;
 mod config;
 #[cfg(not(coverage_nightly))]

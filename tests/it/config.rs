@@ -55,6 +55,7 @@ mod tests {
             "010",
             "2147483647",
             "-2147483648",
+            "\u{b}1",
         ] {
             repo.git(["config", "log.mailmap", value]).unwrap();
             assert_eq!(

@@ -24,7 +24,7 @@ use super::{Process, command};
 
 const MARKER: &[u8] = b"\x1e\x1fghist\n";
 
-pub fn log_command(ctx: &Context, args: &LogArgs, mailmap: bool) -> Command {
+pub fn log_command(ctx: &Context, args: &LogArgs, mailmap: bool, color: bool) -> Command {
     let mut command = command(ctx);
     command.args([
         "log",
@@ -36,7 +36,11 @@ pub fn log_command(ctx: &Context, args: &LogArgs, mailmap: bool) -> Command {
         "--no-follow",
         "--no-show-signature",
         "--no-ext-diff",
-        "--color=never",
+        if color {
+            "--color=always"
+        } else {
+            "--color=never"
+        },
     ]);
     let identities = if mailmap {
         "%aN%x00%aE%x00%ai%x00%cN%x00%cE%x00%ci"
@@ -65,9 +69,10 @@ pub fn walk(
     ctx: &Context,
     args: &LogArgs,
     mailmap: bool,
+    color: bool,
     visit: &mut Visitor<'_>,
 ) -> Result<Vec<u8>, Error> {
-    let mut process = Process::spawn(&mut log_command(ctx, args, mailmap))?;
+    let mut process = Process::spawn(&mut log_command(ctx, args, mailmap, color))?;
     let parsed = read_records(&mut process.stdout, visit);
     let stderr = process.finish()?;
     match parsed {
@@ -495,7 +500,7 @@ mod tests {
                 before: vec!["a..b".into(), "path".into()],
                 after: Some(vec!["-p".into()]),
             };
-            let command = log_command(&ctx, &args, mailmap);
+            let command = log_command(&ctx, &args, mailmap, false);
             let invocation: Vec<_> = command
                 .get_args()
                 .map(|arg| arg.to_str().unwrap())
@@ -531,7 +536,8 @@ mod tests {
                 ]
             );
         }
-        let command = log_command(&ctx, &LogArgs::default(), true);
+        let command = log_command(&ctx, &LogArgs::default(), true, true);
         assert_eq!(command.get_args().last().unwrap(), "--end-of-options");
+        assert!(command.get_args().any(|arg| arg == "--color=always"));
     }
 }

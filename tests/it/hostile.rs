@@ -135,6 +135,6 @@ mod tests {
             ghist::run(&repo.context(&[]), &mut Vec::new(), &mut err),
             Exit::Code(128)
         );
-        assert!(String::from_utf8_lossy(&err).contains("invalid color"));
+        assert!(String::from_utf8_lossy(&err).contains("color.diff.commit"));
     }
 }
