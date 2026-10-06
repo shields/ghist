@@ -57,5 +57,6 @@ pub fn fuller(repo: &TestRepo, args: &[&str]) -> std::io::Result<()> {
             )));
         }
     }
+    super::graph_oracle::compare(repo, &actual, args)?;
     Ok(())
 }

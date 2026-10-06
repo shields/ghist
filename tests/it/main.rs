@@ -25,3 +25,6 @@ mod fixtures;
 mod gaps;
 mod headers;
 mod hostile;
+
+#[cfg(not(coverage_nightly))]
+mod properties;

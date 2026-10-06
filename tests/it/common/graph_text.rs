@@ -45,7 +45,7 @@ pub fn strip(bytes: &[u8]) -> Result<Vec<u8>, String> {
     Ok(output)
 }
 
-fn cell(bytes: &[u8]) -> Option<(char, &[u8])> {
+pub fn cell(bytes: &[u8]) -> Option<(char, &[u8])> {
     if let Some(tail) = bytes.strip_prefix(b" ") {
         return Some((' ', tail));
     }
