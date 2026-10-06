@@ -27,7 +27,7 @@ pub fn hidden(ctx: &Context, args: &LogArgs) -> Result<(HashSet<Oid>, Vec<u8>), 
     }) {
         return Ok((HashSet::new(), Vec::new()));
     }
-    let mut process = Process::spawn(&mut invocation(ctx, args, false))?;
+    let mut process = Process::spawn(ctx, &mut invocation(ctx, args, false))?;
     let mut bytes = Vec::new();
     let read = process.stdout.read_to_end(&mut bytes);
     let stderr = process.finish()?;
@@ -74,7 +74,7 @@ fn invocation(ctx: &Context, args: &LogArgs, boundary: bool) -> Command {
 }
 
 fn boundaries(ctx: &Context, args: &LogArgs) -> Result<(HashSet<Oid>, Vec<u8>), Error> {
-    let mut process = Process::spawn(&mut invocation(ctx, args, true))?;
+    let mut process = Process::spawn(ctx, &mut invocation(ctx, args, true))?;
     let result = parse(&mut process.stdout);
     let stderr = process.finish()?;
     match result {

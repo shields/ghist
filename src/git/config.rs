@@ -41,7 +41,7 @@ impl Value {
 
 impl Config {
     pub fn read(ctx: &Context) -> Result<(Self, Vec<u8>), Error> {
-        let mut process = Process::spawn(command(ctx).args(["config", "--list", "-z"]))?;
+        let mut process = Process::spawn(ctx, command(ctx).args(["config", "--list", "-z"]))?;
         let mut bytes = Vec::new();
         let read = process.stdout.read_to_end(&mut bytes);
         let stderr = process.finish()?;

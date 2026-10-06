@@ -29,6 +29,7 @@ mod hostile;
 mod paging;
 mod pipes;
 mod ranges;
+mod signals;
 
 #[cfg(not(coverage_nightly))]
 mod properties;

@@ -21,11 +21,14 @@ mod stream_fuzz;
 
 use std::io::{self, BufReader, Read};
 use std::os::unix::process::ExitStatusExt;
-use std::process::{Child, ChildStdout, Command, ExitStatus, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread::{self, JoinHandle};
 
 use crate::error::Error;
+use crate::signal::{self, Pipe};
 use crate::{Context, Exit};
+use std::sync::{Arc, atomic::AtomicUsize};
+use std::time::Duration;
 
 pub struct ChildGuard(pub Child);
 
@@ -38,7 +41,8 @@ impl Drop for ChildGuard {
 
 pub struct Process {
     child: ChildGuard,
-    pub stdout: BufReader<ChildStdout>,
+    pub stdout: BufReader<Pipe>,
+    signal: Arc<AtomicUsize>,
     stderr: JoinHandle<io::Result<Vec<u8>>>,
 }
 
@@ -56,16 +60,17 @@ pub fn command(ctx: &Context) -> Command {
 }
 
 impl Process {
-    pub fn spawn(command: &mut Command) -> Result<Self, Error> {
+    pub fn spawn(ctx: &Context, command: &mut Command) -> Result<Self, Error> {
         let mut child = ChildGuard(command.spawn()?);
-        let stdout = BufReader::new(pipe(child.0.stdout.take())?);
-        let mut stderr = pipe(child.0.stderr.take())?;
+        let stdout = BufReader::new(Pipe::new(pipe(child.0.stdout.take())?.into(), &ctx.signal)?);
+        let mut stderr = Pipe::new(pipe(child.0.stderr.take())?.into(), &ctx.signal)?;
         let read = move || read_stderr(&mut stderr);
         let stderr = thread::Builder::new()
             .name("ghist-stderr".into())
             .spawn(read)?;
         Ok(Self {
             child,
+            signal: Arc::clone(&ctx.signal),
             stdout,
             stderr,
         })
@@ -79,7 +84,16 @@ impl Process {
 
     pub fn finish(mut self) -> Result<Vec<u8>, Error> {
         let drain = io::copy(&mut self.stdout, &mut io::sink());
-        let status = self.child.0.wait()?;
+        let status = loop {
+            if signal::check(&self.signal).is_err() {
+                let _ = self.child.0.kill();
+                break self.child.0.wait()?;
+            }
+            if let Some(status) = self.child.0.try_wait()? {
+                break status;
+            }
+            thread::sleep(Duration::from_millis(1));
+        };
         let stderr = joined(self.stderr.join())?;
         if !status.success() {
             return Err(Error::Git {

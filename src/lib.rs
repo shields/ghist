@@ -22,11 +22,17 @@ mod oid;
 mod out;
 mod pager;
 mod render;
+mod signal;
 
 use std::cell::RefCell;
 use std::ffi::OsString;
 use std::io::Write;
+use std::os::fd::BorrowedFd;
 use std::path::PathBuf;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 #[derive(Debug, Default)]
 pub struct Context {
@@ -35,6 +41,14 @@ pub struct Context {
     pub cwd: PathBuf,
     pub stdout_is_terminal: bool,
     pub terminal_columns: Option<usize>,
+    pub signal: Arc<AtomicUsize>,
+}
+
+impl Context {
+    #[must_use]
+    pub fn writer<'a>(&'a self, fd: BorrowedFd<'a>) -> impl Write + 'a {
+        signal::Writer::new(fd, &self.signal)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -45,7 +59,11 @@ pub enum Exit {
 
 #[must_use]
 pub fn run(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Exit {
-    match execute(ctx, out, err) {
+    let result = execute(ctx, out, err);
+    if let Ok(signal @ 1..) = i32::try_from(ctx.signal.load(Ordering::Relaxed)) {
+        return Exit::Signal(signal);
+    }
+    let exit = match result {
         Ok(()) => Exit::Code(0),
         Err(error) if error.is_broken_pipe() => Exit::Code(0),
         Err(error) => match error.report(err) {
@@ -53,6 +71,11 @@ pub fn run(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Exit {
             Err(error) if error.kind() == std::io::ErrorKind::BrokenPipe => Exit::Code(0),
             Err(_) => Exit::Code(1),
         },
+    };
+    if let Ok(signal @ 1..) = i32::try_from(ctx.signal.load(Ordering::Relaxed)) {
+        Exit::Signal(signal)
+    } else {
+        exit
     }
 }
 
@@ -80,7 +103,11 @@ fn log(
         color::validate(&config)?;
         let pager = pager::resolve(ctx, &config)?;
         let color = color::want_color(ctx, &config, pager.is_some())?;
-        let palette = color.then(|| color::Palette::read(&config)).transpose()?;
+        let palette = if color {
+            Some(color::Palette::read(&config)?)
+        } else {
+            None
+        };
         let (hidden, warnings) = git::revs::hidden(ctx, args)?;
         stderr.extend(warnings);
         let output = RefCell::new(out::Output::new(ctx, out, pager));

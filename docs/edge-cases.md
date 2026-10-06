@@ -50,7 +50,7 @@ colon-separated list of repositories to compare their full histories too.
 | Graph edges, lane colors, ranges, compaction        | T      | `graph::*::tests`, graph oracle, colors, and ranges          |
 | Patches, stats, binary sizes, width                 | G      | Diff implementation pending                                  |
 | Pager environment, exit statuses and stderr         | T      | `tests/it/paging.rs`                                         |
-| Signals and cancellation                            | G      | Signal lifecycle implementation pending                      |
+| Signals and cancellation                            | T      | `tests/it/signals.rs`                                        |
 | Repository mutations during a run                   | U      | Subprocesses may observe different repository states         |
 | Ambiguous-width Unicode terminals                   | U      | Display cell widths depend on the terminal                   |
 
@@ -167,12 +167,16 @@ TAB, which have separate message/framing cases.
 
 ## Pager and output lifecycle
 
-| Case                                                                      | Status | Evidence                                                               |
-| ------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------- |
-| Pager precedence, empty and cat disablement, invalid bare core.pager      | T      | `pager::tests`, `tests/it/paging.rs`                                   |
-| Pager starts lazily, receives default environment and measured columns    | T      | `starts_lazily_and_propagates_nonzero_pager_exit`, environment capture |
-| Output flushes before an unbuffered read; diagnostics wait for pager exit | T      | `git::buffer::tests`, fake-Git handshake                               |
-| Nonzero and missing pagers preserve their exit status                     | T      | `tests/it/paging.rs`                                                   |
-| Closed stdout and early successful pager exit are quiet successes         | T      | `tests/it/pipes.rs`, real binary pipes                                 |
-| Nonzero pager exit outranks a broken output pipe                          | T      | `early_pager_exit_is_quiet_but_preserves_nonzero_status`               |
-| Closed output stops an unbounded Git stream                               | T      | `a_closed_output_stops_an_unbounded_git_stream`                        |
+| Case                                                                                 | Status | Evidence                                                               |
+| ------------------------------------------------------------------------------------ | ------ | ---------------------------------------------------------------------- |
+| Pager precedence, empty and cat disablement, invalid bare core.pager                 | T      | `pager::tests`, `tests/it/paging.rs`                                   |
+| Pager starts lazily, receives default environment and measured columns               | T      | `starts_lazily_and_propagates_nonzero_pager_exit`, environment capture |
+| Output flushes before an unbuffered read; diagnostics wait for pager exit            | T      | `git::buffer::tests`, fake-Git handshake                               |
+| Nonzero and missing pagers preserve their exit status                                | T      | `tests/it/paging.rs`                                                   |
+| Closed stdout and early successful pager exit are quiet successes                    | T      | `tests/it/pipes.rs`, real binary pipes                                 |
+| Nonzero pager exit outranks a broken output pipe                                     | T      | `early_pager_exit_is_quiet_but_preserves_nonzero_status`               |
+| Closed output stops an unbounded Git stream                                          | T      | `a_closed_output_stops_an_unbounded_git_stream`                        |
+| INT, QUIT, TERM and HUP interrupt Git reads and waits, reap Git, and re-raise        | T      | `tests/it/signals.rs`, real binary statuses                            |
+| Signal cleanup closes pager stdin and waits for its exit                             | T      | Pager EOF and release handshake                                        |
+| Cancellation interrupts empty reads and full writes without changing inherited flags | T      | `signal::tests`                                                        |
+| Signals arriving during error reporting retain their signal status                   | T      | `signals_arriving_while_reporting_errors_are_preserved`                |

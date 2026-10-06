@@ -42,6 +42,7 @@ impl<'a> Output<'a> {
     }
 
     fn flush_buffer(&mut self) -> io::Result<()> {
+        crate::signal::check(&self.ctx.signal)?;
         if self.failed {
             return Err(io::Error::other("output already failed"));
         }

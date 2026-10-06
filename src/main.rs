@@ -15,7 +15,9 @@
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 use std::io::{self, IsTerminal};
+use std::os::fd::AsFd;
 use std::process::ExitCode;
+use std::sync::{Arc, atomic::AtomicUsize};
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 fn main() -> ExitCode {
@@ -27,7 +29,24 @@ fn main() -> ExitCode {
         }
     };
     let stdout = io::stdout();
+    let signal = Arc::new(AtomicUsize::new(0));
+    for number in [
+        signal_hook::consts::SIGINT,
+        signal_hook::consts::SIGQUIT,
+        signal_hook::consts::SIGTERM,
+        signal_hook::consts::SIGHUP,
+    ] {
+        if let Err(error) = signal_hook::flag::register_usize(
+            number,
+            Arc::clone(&signal),
+            usize::try_from(number).expect("signal numbers are positive"),
+        ) {
+            eprintln!("ghist: {error}");
+            return ExitCode::FAILURE;
+        }
+    }
     let ctx = ghist::Context {
+        signal,
         args: std::env::args_os().skip(1).collect(),
         env: std::env::vars_os().collect(),
         cwd,
@@ -37,7 +56,11 @@ fn main() -> ExitCode {
             .map(|size| usize::from(size.ws_col))
             .filter(|&columns| columns > 0),
     };
-    match ghist::run(&ctx, &mut stdout.lock(), &mut io::stderr().lock()) {
+    match ghist::run(
+        &ctx,
+        &mut ctx.writer(stdout.as_fd()),
+        &mut ctx.writer(io::stderr().as_fd()),
+    ) {
         ghist::Exit::Code(code) => ExitCode::from(code),
         ghist::Exit::Signal(signal) => {
             if let Err(error) = signal_hook::low_level::emulate_default_handler(signal) {

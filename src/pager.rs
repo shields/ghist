@@ -15,7 +15,7 @@
 use std::ffi::{OsStr, OsString};
 use std::io;
 use std::os::unix::ffi::OsStringExt;
-use std::process::{ChildStdin, Command, Stdio};
+use std::process::{Command, Stdio};
 
 use crate::{
     Context, Exit, env,
@@ -69,7 +69,7 @@ pub fn child_env(ctx: &Context) -> Vec<(OsString, OsString)> {
 
 pub struct Pager {
     child: ChildGuard,
-    pub input: Option<ChildStdin>,
+    pub input: Option<crate::signal::Pipe>,
 }
 
 impl Pager {
@@ -86,7 +86,15 @@ impl Pager {
                 .stderr(Stdio::inherit())
                 .spawn()?,
         );
-        let input = child.0.stdin.take();
+        let input = Some(crate::signal::Pipe::new(
+            child
+                .0
+                .stdin
+                .take()
+                .expect("a running pager has piped stdin")
+                .into(),
+            &ctx.signal,
+        )?);
         Ok(Self { child, input })
     }
 
