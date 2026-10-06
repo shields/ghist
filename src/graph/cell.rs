@@ -20,12 +20,12 @@ pub const RIGHT: u8 = 8;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Cell {
     pub arms: u8,
-    pub color: u16,
+    pub color: usize,
     pub node: bool,
 }
 
 impl Cell {
-    pub const fn line(arms: u8, color: u16) -> Self {
+    pub const fn line(arms: u8, color: usize) -> Self {
         Self {
             arms,
             color,

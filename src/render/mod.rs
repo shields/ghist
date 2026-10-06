@@ -22,7 +22,7 @@ use crate::color::Palette;
 use crate::git::log::Record;
 use crate::graph::{Graph, Prefixes};
 use crate::oid::Oid;
-use std::num::NonZeroU16;
+use std::num::NonZeroUsize;
 
 pub struct Renderer<'a> {
     out: &'a mut dyn Write,
@@ -38,7 +38,11 @@ impl<'a> Renderer<'a> {
             out,
             first: true,
             colors,
-            graph: Graph::new(NonZeroU16::MIN),
+            graph: Graph::new(
+                colors
+                    .and_then(|palette| NonZeroUsize::new(palette.graph.len()))
+                    .unwrap_or(NonZeroUsize::MIN),
+            ),
             prefixes: Prefixes::default(),
         }
     }
@@ -49,8 +53,10 @@ impl<'a> Renderer<'a> {
         }
         self.first = false;
         let parents: Vec<_> = record.parents.iter().map(|parent| parent.oid).collect();
-        self.prefixes
-            .paint(self.graph.next(&record.oid, &parents), None);
+        self.prefixes.paint(
+            self.graph.next(&record.oid, &parents),
+            self.colors.map(|palette| palette.graph.as_slice()),
+        );
         for line in header::lines(record, self.colors) {
             self.line(&line)?;
         }
@@ -143,7 +149,7 @@ mod tests {
     fn leftover_rows_are_written_and_propagate_errors() {
         let record = header::tests::record();
         let mut shape = crate::graph::Shape::default();
-        let mut graph = Graph::new(NonZeroU16::MIN);
+        let mut graph = Graph::new(NonZeroUsize::MIN);
         let generated = graph.next(&record.oid, &[]);
         shape.rows.clone_from(&generated.rows);
         shape.width = generated.width;

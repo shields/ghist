@@ -157,3 +157,5 @@ TAB, which have separate message/framing cases.
 | Prefix output preserves every partial-write error                  | T      | Renderer failure injection                     |
 | Rendered edges equal Git parents for exhaustive and generated DAGs | T      | Independent glyph-to-edge oracle               |
 | Determinism, column-zero mainline, and color-independent text      | T      | Graph output properties in both object formats |
+| Default and configured lane colors agree with Git                  | T      | Incoming-edge colors in both object formats    |
+| Empty palettes, empty entries, and more than 65,535 colors         | T      | Palette parsing and color-counter bounds       |

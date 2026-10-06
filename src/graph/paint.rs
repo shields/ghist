@@ -74,7 +74,7 @@ fn paint(row: &[Cell], column: usize, palette: Option<&[Sgr]>) -> Painted {
             None
         } else {
             palette
-                .and_then(|palette| palette.get(usize::from(cell.color)))
+                .and_then(|palette| palette.get(cell.color))
                 .filter(|sgr| !sgr.0.is_empty())
         };
         if color != current {
@@ -103,11 +103,11 @@ fn paint(row: &[Cell], column: usize, palette: Option<&[Sgr]>) -> Painted {
 mod tests {
     use super::*;
     use crate::graph::Graph;
-    use std::num::NonZeroU16;
+    use std::num::NonZeroUsize;
 
     #[test]
     fn fixed_rows_padding_blank_lines_and_leftovers() {
-        let mut graph = Graph::new(NonZeroU16::MIN);
+        let mut graph = Graph::new(NonZeroUsize::MIN);
         let mut prefixes = Prefixes::default();
         let shape = graph.next(&9, &[8, 7, 6]);
         prefixes.paint(shape, None);

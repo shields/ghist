@@ -234,6 +234,33 @@ pub fn validate(config: &Config) -> Result<(), Error> {
     Ok(())
 }
 
+fn graph_colors(config: &Config) -> Result<Vec<Sgr>, Error> {
+    let Some(value) = config.last(&[b"log.graphcolors"]) else {
+        return Ok((0..12)
+            .map(|index| {
+                Sgr(format!(
+                    "\x1b[{}{}m",
+                    if index >= 6 { "1;" } else { "" },
+                    31 + index % 6
+                )
+                .into_bytes())
+            })
+            .collect());
+    };
+    let failure = || Error::Config {
+        key: b"log.graphcolors".to_vec(),
+        value: value.bytes().map(<[u8]>::to_vec),
+    };
+    let bytes = value.bytes().ok_or_else(failure)?;
+    if bytes.is_empty() {
+        return Ok(Vec::new());
+    }
+    bytes
+        .split(|&byte| byte == b',')
+        .map(|entry| parse(entry).ok_or_else(failure))
+        .collect()
+}
+
 #[derive(Debug)]
 pub struct Palette {
     pub commit: Sgr,
@@ -243,6 +270,7 @@ pub struct Palette {
     pub tag: Sgr,
     pub stash: Sgr,
     pub grafted: Sgr,
+    pub graph: Vec<Sgr>,
 }
 
 impl Palette {
@@ -266,6 +294,7 @@ impl Palette {
             tag: color(b"color.decorate.tag", b"\x1b[1;33m")?,
             stash: color(b"color.decorate.stash", b"\x1b[1;35m")?,
             grafted: color(b"color.decorate.grafted", b"\x1b[1;34m")?,
+            graph: graph_colors(config)?,
         })
     }
 }
@@ -273,6 +302,46 @@ impl Palette {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn graph_palettes_support_defaults_empty_entries_and_large_lists() {
+        let colors = graph_colors(&Config::default()).unwrap();
+        assert_eq!(colors.len(), 12);
+        assert_eq!(colors[0].0, b"\x1b[31m");
+        assert_eq!(colors[11].0, b"\x1b[1;36m");
+        assert_eq!(
+            graph_colors(&Config::parse(b"log.graphcolors\n\0").unwrap()).unwrap(),
+            vec![]
+        );
+        let colors =
+            graph_colors(&Config::parse(b"log.graphcolors\nred,,blue\0").unwrap()).unwrap();
+        assert_eq!(
+            colors,
+            [
+                Sgr(b"\x1b[31m".to_vec()),
+                Sgr::default(),
+                Sgr(b"\x1b[34m".to_vec())
+            ]
+        );
+        let large = format!("log.graphcolors\n{}blue\0", "red,".repeat(69_999));
+        assert_eq!(
+            graph_colors(&Config::parse(large.as_bytes()).unwrap())
+                .unwrap()
+                .len(),
+            70_000
+        );
+        for value in [
+            b"log.graphcolors\0".as_slice(),
+            b"log.graphcolors\nred,bad\0",
+        ] {
+            assert_eq!(
+                graph_colors(&Config::parse(value).unwrap())
+                    .unwrap_err()
+                    .exit(),
+                crate::Exit::Code(128)
+            );
+        }
+    }
 
     #[test]
     fn invalid_color_configuration_is_fatal() {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::num::NonZeroU16;
+use std::num::NonZeroUsize;
 
 use super::{
     Row, Shape,
@@ -22,18 +22,18 @@ use super::{
 #[derive(Clone)]
 struct Lane<Id> {
     target: Id,
-    color: u16,
+    color: usize,
 }
 
 pub struct Graph<Id> {
     lanes: Vec<Option<Lane<Id>>>,
-    ncolors: NonZeroU16,
-    counter: u16,
+    ncolors: NonZeroUsize,
+    counter: usize,
     shape: Shape,
 }
 
 impl<Id: Clone + Eq> Graph<Id> {
-    pub fn new(ncolors: NonZeroU16) -> Self {
+    pub fn new(ncolors: NonZeroUsize) -> Self {
         Self {
             lanes: Vec::new(),
             counter: ncolors.get() - 1,
@@ -48,7 +48,7 @@ impl<Id: Clone + Eq> Graph<Id> {
             .position(|lane| lane.as_ref().is_some_and(|lane| lane.target == *id))
     }
 
-    fn place(&mut self, start: usize, target: Id, color: u16) -> usize {
+    fn place(&mut self, start: usize, target: Id, color: usize) -> usize {
         let lane = Some(Lane { target, color });
         if let Some((index, slot)) = self
             .lanes
@@ -145,7 +145,7 @@ impl<Id: Clone + Eq> Graph<Id> {
         &self.shape
     }
 
-    fn fanout(&mut self, node: usize, incoming: &[Cell], targets: &[(usize, u16, bool)]) {
+    fn fanout(&mut self, node: usize, incoming: &[Cell], targets: &[(usize, usize, bool)]) {
         let mut row = incoming.to_vec();
         row.resize(2 * self.lanes.len() - 1, Cell::default());
         let mut outward = targets.to_vec();
@@ -205,12 +205,12 @@ fn vertical<Id>(lanes: &[Option<Lane<Id>>]) -> Row {
     row
 }
 
-fn set(row: &mut [Cell], lane: usize, arms: u8, color: u16) {
+fn set(row: &mut [Cell], lane: usize, arms: u8, color: usize) {
     *row.get_mut(2 * lane)
         .expect("rows span every occupied lane") = Cell::line(arms, color);
 }
 
-fn connect(row: &mut [Cell], from: usize, to: usize, color: u16) {
+fn connect(row: &mut [Cell], from: usize, to: usize, color: usize) {
     let left = 2 * from.min(to);
     let right = 2 * from.max(to);
     for (index, cell) in row.iter_mut().enumerate().take(right + 1).skip(left) {
@@ -226,7 +226,7 @@ fn connect(row: &mut [Cell], from: usize, to: usize, color: u16) {
 
 #[cfg(test)]
 mod tests {
-    use super::{NonZeroU16, Shape};
+    use super::{NonZeroUsize, Shape};
     use crate::graph::Graph;
 
     fn rows(shape: &Shape) -> Vec<String> {
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn linear_roots_and_reused_holes() {
-        let mut graph = Graph::new(NonZeroU16::new(12).unwrap());
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         let shape = graph.next(&4, &[3]);
         assert_eq!(rows(shape), ["●", "│"]);
         assert_eq!(shape.text_column(), 3);
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn fanout_pull_crossings_and_existing_parents() {
-        let mut graph = Graph::new(NonZeroU16::new(12).unwrap());
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         assert_eq!(rows(graph.next(&9, &[8, 7, 6])), ["●", "├─┬─╮", "│ │ │"]);
         assert_eq!(
             rows(graph.next(&8, &[6, 5])),
@@ -281,8 +281,17 @@ mod tests {
     }
 
     #[test]
+    fn color_indices_cover_large_configured_palettes() {
+        let mut graph = Graph::new(NonZeroUsize::new(70_000).unwrap());
+        graph.counter = 65_534;
+        let shape = graph.next(&3, &[2, 1]);
+        assert_eq!(shape.pad[0].color, 65_535);
+        assert_eq!(shape.pad[2].color, 65_536);
+    }
+
+    #[test]
     fn duplicate_parents_and_counter_wrap() {
-        let mut graph = Graph::new(NonZeroU16::new(2).unwrap());
+        let mut graph = Graph::new(NonZeroUsize::new(2).unwrap());
         let shape = graph.next(&5, &[4, 3, 3]);
         assert_eq!(rows(shape), ["●", "├─╮", "│ │"]);
         assert_eq!(shape.pad[0].color, 0);

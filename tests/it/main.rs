@@ -23,6 +23,7 @@ mod exhaustive;
 mod fixtures;
 #[cfg(not(coverage_nightly))]
 mod gaps;
+mod graph_colors;
 mod headers;
 mod hostile;
 
