@@ -183,7 +183,7 @@ cat-file)
     : > "$STARTED"
     case "$MODE" in
     failed) printf 'size failed\n' >&2; exit 7 ;;
-    unterminated) printf '12'; exit 0 ;;
+    unterminated) IFS= read -r hash; printf '12'; exit 0 ;;
     # exec closes saved stdin descriptors before the reply allows another write.
     closed) IFS= read -r hash; exec /usr/bin/printf '12\n' </dev/null ;;
     waiting) while test ! -e "$RELEASE"; do :; done; exit 0 ;;
