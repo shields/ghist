@@ -100,12 +100,12 @@ fn write_line(out: &mut dyn Write, prefix: &[u8], text: &[u8]) -> io::Result<()>
 mod tests {
     use super::*;
 
-    struct FailAfter(usize);
+    struct FailAfter(usize, io::ErrorKind);
 
     impl Write for FailAfter {
         fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
             if self.0 == 0 {
-                return Err(io::Error::other("output failed"));
+                return Err(io::Error::new(self.1, "output failed"));
             }
             let size = self.0.min(bytes.len());
             self.0 -= size;
@@ -169,7 +169,7 @@ mod tests {
         renderer.finish().unwrap();
         assert_eq!(out, "●\n".as_bytes());
         for count in 0..out.len() {
-            let mut writer = FailAfter(count);
+            let mut writer = FailAfter(count, io::ErrorKind::Other);
             let mut renderer = Renderer::new(&mut writer, None, HashSet::new());
             renderer.prefixes.paint(&shape, None);
             assert_eq!(renderer.finish().unwrap_err().to_string(), "output failed");
@@ -190,15 +190,18 @@ mod tests {
                 .any(|part| part == "    body\n\n● ".as_bytes())
         );
         assert!(!out.ends_with(b"\n\n"));
-        for count in 0..out.len() {
-            let mut writer = FailAfter(count);
-            let mut renderer = Renderer::new(&mut writer, None, HashSet::new());
-            let error = renderer
-                .commit(&record)
-                .and_then(|()| renderer.commit(&empty))
-                .unwrap_err();
-            assert_eq!(error.to_string(), "output failed");
+        for kind in [io::ErrorKind::Other, io::ErrorKind::BrokenPipe] {
+            for count in 0..out.len() {
+                let mut writer = FailAfter(count, kind);
+                let mut renderer = Renderer::new(&mut writer, None, HashSet::new());
+                let error = renderer
+                    .commit(&record)
+                    .and_then(|()| renderer.commit(&empty))
+                    .unwrap_err();
+                assert_eq!(error.kind(), kind);
+                assert_eq!(error.to_string(), "output failed");
+            }
         }
-        FailAfter(1).flush().unwrap();
+        FailAfter(1, io::ErrorKind::Other).flush().unwrap();
     }
 }

@@ -47,12 +47,12 @@ pub enum Exit {
 pub fn run(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Exit {
     match execute(ctx, out, err) {
         Ok(()) => Exit::Code(0),
-        Err(error) => {
-            if error.report(err).is_err() {
-                return Exit::Code(1);
-            }
-            error.exit()
-        }
+        Err(error) if error.is_broken_pipe() => Exit::Code(0),
+        Err(error) => match error.report(err) {
+            Ok(()) => error.exit(),
+            Err(error) if error.kind() == std::io::ErrorKind::BrokenPipe => Exit::Code(0),
+            Err(_) => Exit::Code(1),
+        },
     }
 }
 
@@ -141,6 +141,35 @@ mod tests {
                 Ok(())
             }
         }
+    }
+
+    #[test]
+    fn broken_stdout_and_stderr_are_quiet_successes() {
+        struct BrokenPipe;
+        impl Write for BrokenPipe {
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                Err(io::ErrorKind::BrokenPipe.into())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Err(io::ErrorKind::BrokenPipe.into())
+            }
+        }
+        let ctx = Context {
+            args: vec!["--help".into()],
+            ..Context::default()
+        };
+        let mut err = Vec::new();
+        assert_eq!(run(&ctx, &mut BrokenPipe, &mut err), Exit::Code(0));
+        assert_eq!(err, b"");
+        let ctx = Context {
+            args: vec!["--bad".into()],
+            ..Context::default()
+        };
+        assert_eq!(run(&ctx, &mut Vec::new(), &mut BrokenPipe), Exit::Code(0));
+        assert_eq!(
+            BrokenPipe.flush().unwrap_err().kind(),
+            io::ErrorKind::BrokenPipe
+        );
     }
 
     #[test]

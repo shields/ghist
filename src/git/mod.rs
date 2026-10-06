@@ -71,6 +71,12 @@ impl Process {
         })
     }
 
+    pub fn stop(mut self) -> Result<Vec<u8>, Error> {
+        let _ = self.child.0.kill();
+        self.child.0.wait()?;
+        joined(self.stderr.join())
+    }
+
     pub fn finish(mut self) -> Result<Vec<u8>, Error> {
         let drain = io::copy(&mut self.stdout, &mut io::sink());
         let status = self.child.0.wait()?;

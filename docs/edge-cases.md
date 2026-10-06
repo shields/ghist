@@ -38,7 +38,7 @@ colon-separated list of repositories to compare their full histories too.
 | Non-UTF-8 operands and unsupported options                         | T      | `args::tests`                                       |
 | Usage diagnostics and exit 2                                       | T      | `error::tests`, `tests::usage_error_goes_to_stderr` |
 | Partial stdout and stderr writes, flush failures                   | T      | `tests::handles_*`                                  |
-| Quiet broken pipe                                                  | G      | Planned with output and pager lifecycle             |
+| Quiet broken pipe                                                  | T      | `tests/it/pipes.rs`, partial-write checks           |
 
 ## History and display
 
@@ -173,3 +173,6 @@ TAB, which have separate message/framing cases.
 | Pager starts lazily, receives default environment and measured columns    | T      | `starts_lazily_and_propagates_nonzero_pager_exit`, environment capture |
 | Output flushes before an unbuffered read; diagnostics wait for pager exit | T      | `git::buffer::tests`, fake-Git handshake                               |
 | Nonzero and missing pagers preserve their exit status                     | T      | `tests/it/paging.rs`                                                   |
+| Closed stdout and early successful pager exit are quiet successes         | T      | `tests/it/pipes.rs`, real binary pipes                                 |
+| Nonzero pager exit outranks a broken output pipe                          | T      | `early_pager_exit_is_quiet_but_preserves_nonzero_status`               |
+| Closed output stops an unbounded Git stream                               | T      | `a_closed_output_stops_an_unbounded_git_stream`                        |

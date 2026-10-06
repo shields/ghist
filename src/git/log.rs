@@ -76,6 +76,9 @@ pub fn walk(
     let mut process = Process::spawn(&mut log_command(ctx, args, mailmap, color))?;
     let mut reader = super::buffer::FlushReader::new(&mut process.stdout, flush);
     let parsed = read_records(&mut reader, visit);
+    if let Err(error @ Error::Io(_)) = parsed {
+        return Err(error.with_stderr(process.stop()?));
+    }
     let stderr = process.finish()?;
     match parsed {
         Ok(()) => Ok(stderr),

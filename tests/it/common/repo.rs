@@ -81,6 +81,19 @@ impl TestRepo {
         }
     }
 
+    pub fn ghist_command(&self, args: &[&str]) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_ghist"));
+        command
+            .args(args)
+            .env_clear()
+            .envs(self.env.iter().cloned())
+            .current_dir(&self.cwd)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        command
+    }
+
     pub fn script(&self, name: &str, body: &[u8]) -> io::Result<PathBuf> {
         let path = self.cwd.join(name);
         let mut bytes = b"#!/bin/sh\n".to_vec();

@@ -27,6 +27,7 @@ mod graph_colors;
 mod headers;
 mod hostile;
 mod paging;
+mod pipes;
 mod ranges;
 
 #[cfg(not(coverage_nightly))]
