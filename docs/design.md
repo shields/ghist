@@ -197,6 +197,14 @@ commits. Labels are 12 columns wide.
 - Use raw bytes throughout; git has already re-encoded to
   `i18n.logOutputEncoding`.
 
+Git's [tab expansion](https://git-scm.com/docs/pretty-options) uses character
+widths that differ from `unicode-width` for format controls, spacing marks, and
+some default-ignorable characters. `render/width.rs` records the corrections
+observed by comparing Git 2.56's fuller output with `unicode-width` 0.2.2 across
+every Unicode scalar value. The integration test repeats that comparison against
+the installed Git. `%B` and `%w(...)%B` preserve tabs even with
+`--expand-tabs=8`, so the renderer performs expansion.
+
 **Escape sequences.** Let C be `color.diff.commit`.
 
 - Header: `C "sha1 " H[..u] \e[22;2m H[u..] \e[m`. SGR 22 clears bold, so a bold

@@ -108,7 +108,7 @@ pub struct Record {
 }
 
 impl Record {
-    fn parse(fields: [Vec<u8>; 12]) -> Result<Self, Error> {
+    pub fn parse(fields: [Vec<u8>; 12]) -> Result<Self, Error> {
         let [
             hash,
             short,

@@ -42,7 +42,7 @@ alone does not establish that ghist handles a case correctly.
 | --------------------------------------------------- | ------ | ---------------------------------------------------- |
 | Git record framing and hostile configuration        | T      | `git::log::tests`, `tests/it/hostile.rs`             |
 | SHA-1 and SHA-256, unique-prefix dimming            | G      | Stream and color implementation pending              |
-| Headers, mailmap, dates, decorations, message bytes | G      | Rendering implementation pending                     |
+| Headers, mailmap, dates, decorations, message bytes | T      | `render::*::tests`, `tests/it/headers.rs`            |
 | Graph edges, lane colors, ranges, compaction        | G      | Graph implementation pending                         |
 | Patches, stats, binary sizes, width                 | G      | Diff implementation pending                          |
 | Pager environment, exit statuses, stderr, signals   | G      | Process lifecycle implementation pending             |
@@ -90,3 +90,21 @@ behavior entries above stay marked as gaps until ghist itself is tested.
 | Invalid diff color, unborn HEAD, bad revision, outside repository | T      | `tests/it/hostile.rs`, `tests/it/errors.rs`                                           |
 | Empty walks, malformed framing, Git error precedence              | T      | `tests/it/errors.rs`                                                                  |
 | Raw Git warnings retained with protocol errors                    | T      | `retains_git_warnings_when_protocol_validation_fails`                                 |
+
+## Plain rendering
+
+The Unicode-width comparison covers every scalar value except NUL, LF, CR, and
+TAB, which have separate message/framing cases.
+
+| Dimension                                                                      | Status | Evidence                                                                   |
+| ------------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------------- |
+| Full hashes and object format labels; detached HEAD                            | T      | `full_hashes_conditional_headers_and_dates_in_both_formats`                |
+| Conditional committer identity and dates; same epoch with different timezones  | T      | `render::header::tests`, `tests/it/headers.rs`                             |
+| Mailmap affects identity comparison and honors `log.mailmap=false`             | T      | `mailmap_controls_identity_comparison_and_full_decorations`                |
+| Decoration order, shortened refs, commas and non-UTF-8 ref bytes               | T      | `merge_abbreviations_and_decoration_kinds`, `tests/it/headers.rs`          |
+| Merge parents show at least seven digits or their longer unique prefix         | T      | `merge_abbreviations_and_decoration_kinds`                                 |
+| Empty messages, blank lines, trailing whitespace, tab stops and Unicode widths | T      | `render::message::tests`, `message_bytes_and_encoding_match_git_fuller`    |
+| Invalid UTF-8 and control bytes stop tab expansion                             | T      | `tabs_use_message_columns_and_stop_at_invalid_text`, `tests/it/headers.rs` |
+| Git output encodings and NUL-truncated messages                                | T      | `message_bytes_and_encoding_match_git_fuller`                              |
+| Commit separators and every partial output write                               | T      | `separation_empty_messages_and_every_partial_write`                        |
+| Unicode character widths and tab stops across the scalar range                 | T      | `unicode_tab_stops_match_git_across_scalar_values`                         |

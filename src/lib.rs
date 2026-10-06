@@ -17,6 +17,7 @@ mod env;
 mod error;
 mod git;
 mod oid;
+mod render;
 
 use std::ffi::OsString;
 use std::io::Write;
@@ -60,7 +61,10 @@ fn execute(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Result<()
             let (config, stderr) = git::config::Config::read(ctx)?;
             let mailmap = config.boolean(b"log.mailmap", true)?;
             err.write_all(&stderr)?;
-            let stderr = git::log::walk(ctx, &args, mailmap, &mut |_, _| Ok(()))?;
+            let mut renderer = render::Renderer::new(out);
+            let stderr = git::log::walk(ctx, &args, mailmap, &mut |record, _| {
+                Ok(renderer.commit(&record)?)
+            })?;
             err.write_all(&stderr)?;
             err.flush()?;
         }
