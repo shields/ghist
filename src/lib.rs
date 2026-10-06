@@ -16,6 +16,7 @@ mod args;
 mod env;
 mod error;
 mod git;
+mod oid;
 
 use std::ffi::OsString;
 use std::io::Write;
@@ -55,9 +56,11 @@ fn execute(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Result<()
         args::Action::Version => {
             out.write_all(concat!("ghist ", env!("CARGO_PKG_VERSION"), "\n").as_bytes())?;
         }
-        args::Action::Log(_) => {
+        args::Action::Log(args) => {
             let (config, stderr) = git::config::Config::read(ctx)?;
-            let _ = config.boolean(b"log.mailmap", true)?;
+            let mailmap = config.boolean(b"log.mailmap", true)?;
+            err.write_all(&stderr)?;
+            let stderr = git::log::walk(ctx, &args, mailmap, &mut |_, _| Ok(()))?;
             err.write_all(&stderr)?;
             err.flush()?;
         }

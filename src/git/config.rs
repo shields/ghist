@@ -45,8 +45,10 @@ impl Config {
         let mut bytes = Vec::new();
         let read = process.stdout.read_to_end(&mut bytes);
         let stderr = process.finish()?;
-        read?;
-        Ok((Self::parse(&bytes)?, stderr))
+        match read.map_err(Error::from).and_then(|_| Self::parse(&bytes)) {
+            Ok(config) => Ok((config, stderr)),
+            Err(error) => Err(error.with_stderr(stderr)),
+        }
     }
 
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {

@@ -31,12 +31,31 @@ pub enum Error {
         exit: Exit,
         stderr: Vec<u8>,
     },
+    WithStderr {
+        error: Box<Self>,
+        stderr: Vec<u8>,
+    },
 }
 
 impl Error {
+    pub fn with_stderr(self, stderr: Vec<u8>) -> Self {
+        if stderr.is_empty() {
+            self
+        } else {
+            Self::WithStderr {
+                error: Box::new(self),
+                stderr,
+            }
+        }
+    }
+
     pub fn report(&self, err: &mut dyn Write) -> io::Result<()> {
         match self {
             Self::Git { stderr, .. } => err.write_all(stderr)?,
+            Self::WithStderr { error, stderr } => {
+                err.write_all(stderr)?;
+                return error.report(err);
+            }
             _ => writeln!(err, "ghist: {self}")?,
         }
         err.flush()
@@ -48,6 +67,7 @@ impl Error {
             Self::Io(_) | Self::Protocol(_) => Exit::Code(1),
             Self::Config { .. } => Exit::Code(128),
             Self::Git { exit, .. } => *exit,
+            Self::WithStderr { error, .. } => error.exit(),
         }
     }
 }
@@ -61,6 +81,7 @@ impl fmt::Display for Error {
                 arg.to_string_lossy()
             ),
             Self::Io(error) => error.fmt(f),
+            Self::WithStderr { error, .. } => error.fmt(f),
             Self::Protocol(message) => write!(f, "invalid git output: {message}"),
             Self::Config { key, value } => write!(
                 f,
@@ -79,6 +100,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Io(error) => Some(error),
+            Self::WithStderr { error, .. } => Some(error),
             Self::Usage(_) | Self::Protocol(_) | Self::Config { .. } | Self::Git { .. } => None,
         }
     }
@@ -130,6 +152,22 @@ mod tests {
                 assert_eq!(err, b"failure\xff\n");
             }
         }
+    }
+
+    #[test]
+    fn diagnostic_context_preserves_error_and_raw_stderr() {
+        let error = Error::Protocol("bad record").with_stderr(b"warning\xff\n".to_vec());
+        assert_eq!(error.exit(), Exit::Code(1));
+        assert_eq!(error.to_string(), "invalid git output: bad record");
+        assert_eq!(error.source().unwrap().to_string(), error.to_string());
+        let mut stderr = Vec::new();
+        error.report(&mut stderr).unwrap();
+        assert_eq!(
+            stderr,
+            b"warning\xff\nghist: invalid git output: bad record\n"
+        );
+        let error = Error::Protocol("bad record").with_stderr(Vec::new());
+        assert!(error.source().is_none());
     }
 
     #[test]

@@ -40,7 +40,7 @@ alone does not establish that ghist handles a case correctly.
 
 | Dimension                                           | Status | Evidence                                             |
 | --------------------------------------------------- | ------ | ---------------------------------------------------- |
-| Git record framing and hostile configuration        | G      | Stream implementation pending                        |
+| Git record framing and hostile configuration        | T      | `git::log::tests`, `tests/it/hostile.rs`             |
 | SHA-1 and SHA-256, unique-prefix dimming            | G      | Stream and color implementation pending              |
 | Headers, mailmap, dates, decorations, message bytes | G      | Rendering implementation pending                     |
 | Graph edges, lane colors, ranges, compaction        | G      | Graph implementation pending                         |
@@ -77,3 +77,16 @@ behavior entries above stay marked as gaps until ghist itself is tested.
 | Git failures take precedence over malformed protocol output    | T      | `prioritizes_git_failures_over_malformed_stdout`           |
 | Help and version avoid spawning Git                            | T      | `informational_options_do_not_start_git`                   |
 | Stderr write and flush failures remain errors                  | T      | `surfaces_stderr_write_failures`                           |
+
+## Record stream
+
+| Dimension                                                         | Status | Evidence                                                                              |
+| ----------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
+| SHA-1 and SHA-256 IDs, parent counts, abbreviation prefixes       | T      | `git::log::tests`, `oid::tests`                                                       |
+| Arbitrary buffer boundaries, marker bytes inside messages         | T      | `message_marker_and_chunk_boundaries`                                                 |
+| Every truncated record prefix and every read failure boundary     | T      | `empty_and_truncated_streams`, `io_errors_at_each_byte_boundary`                      |
+| Adjacent records, patch/stat sections, byte-exact diff lines      | T      | `diffs_and_adjacent_records`, `streams_both_formats_with_hostile_log_and_diff_config` |
+| Signature verification and external diffs disabled                | T      | `tests/it/hostile.rs`                                                                 |
+| Invalid diff color, unborn HEAD, bad revision, outside repository | T      | `tests/it/hostile.rs`, `tests/it/errors.rs`                                           |
+| Empty walks, malformed framing, Git error precedence              | T      | `tests/it/errors.rs`                                                                  |
+| Raw Git warnings retained with protocol errors                    | T      | `retains_git_warnings_when_protocol_validation_fails`                                 |

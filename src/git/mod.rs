@@ -13,6 +13,7 @@
 // limitations under the License.
 
 pub mod config;
+pub mod log;
 
 use std::io::{self, BufReader, Read};
 use std::os::unix::process::ExitStatusExt;

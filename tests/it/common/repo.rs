@@ -61,6 +61,15 @@ impl TestRepo {
         }
     }
 
+    pub fn script(&self, name: &str, body: &[u8]) -> io::Result<PathBuf> {
+        let path = self.cwd.join(name);
+        let mut bytes = b"#!/bin/sh\n".to_vec();
+        bytes.extend_from_slice(body);
+        fs::write(&path, bytes)?;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
+        Ok(path)
+    }
+
     pub fn fake_git(&self, script: &[u8]) -> io::Result<ghist::Context> {
         let bin = self.cwd.join("bin");
         fs::create_dir_all(&bin)?;
@@ -82,24 +91,29 @@ impl TestRepo {
     pub fn import(&self, history: &History) -> io::Result<()> {
         let mut stream = Vec::new();
         history.encode(&mut stream)?;
-        let mut child = self
-            .command(["fast-import", "--quiet", "--force", "--done"])
-            .stdin(Stdio::piped())
-            .spawn()?;
+        self.git_input(["fast-import", "--quiet", "--force", "--done"], &stream)?;
+        Ok(())
+    }
+
+    pub fn git_input(
+        &self,
+        args: impl IntoIterator<Item = impl AsRef<OsStr>>,
+        stream: &[u8],
+    ) -> io::Result<Vec<u8>> {
+        let mut child = self.command(args).stdin(Stdio::piped()).spawn()?;
         let mut stdin = child
             .stdin
             .take()
             .ok_or_else(|| io::Error::other("missing import stdin"))?;
         thread::scope(|scope| {
-            let writer = scope.spawn(move || stdin.write_all(&stream));
+            let writer = scope.spawn(move || stdin.write_all(stream));
             let output = child.wait_with_output()?;
             match writer.join() {
                 Ok(result) => result?,
                 Err(payload) => std::panic::resume_unwind(payload),
             }
             checked(output)
-        })?;
-        Ok(())
+        })
     }
 
     pub fn shallow(&self, depth: usize) -> io::Result<Self> {

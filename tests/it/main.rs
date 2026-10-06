@@ -14,4 +14,6 @@
 
 mod common;
 mod config;
+mod errors;
 mod fixtures;
+mod hostile;
