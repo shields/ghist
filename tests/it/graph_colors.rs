@@ -109,8 +109,18 @@ mod tests {
                 if let Some(palette) = palette {
                     repo.git(["config", "log.graphColors", palette]).unwrap();
                 }
+                // Git takes lane colors modulo the palette size, so an empty
+                // palette divides by zero and dies with SIGFPE on x86. A single
+                // uncolored entry differs only by reset sequences, which
+                // colored_cells ignores, so Git runs with that while ghist
+                // still reads the empty palette.
+                let overrides: &[&str] = if palette == Some("") {
+                    &["-c", "log.graphColors=normal"]
+                } else {
+                    &[]
+                };
                 let expected = repo
-                    .git([
+                    .git(overrides.iter().copied().chain([
                         "log",
                         "--graph",
                         "--color=always",
@@ -118,7 +128,7 @@ mod tests {
                         "--format=%H%n%n",
                         "--no-patch",
                         "--no-show-signature",
-                    ])
+                    ]))
                     .unwrap();
                 let mut actual = Vec::new();
                 let mut err = Vec::new();
