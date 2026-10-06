@@ -57,3 +57,15 @@ jobs:
           cargo install cargo-llvm-cov --version "$CARGO_LLVM_COV_VERSION"
           --locked
       - run: make coverage
+
+  test-macos:
+    name: Test on macOS
+    # Track GA macOS updates so terminal tests exercise the current supported platform.
+    # https://github.com/actions/runner-images#available-images
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup show active-toolchain
+      - run: make test
