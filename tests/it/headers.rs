@@ -28,7 +28,7 @@ mod tests {
             String::from_utf8_lossy(&err)
         );
         assert_eq!(err, b"");
-        out
+        crate::common::graph_text::strip(&out).unwrap()
     }
 
     fn contains(bytes: &[u8], part: &[u8]) -> bool {

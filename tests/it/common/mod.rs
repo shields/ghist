@@ -14,6 +14,7 @@
 
 pub mod ansi;
 pub mod env;
+pub mod graph_text;
 pub mod history;
 #[cfg(all(test, not(coverage_nightly)))]
 pub mod oracle;

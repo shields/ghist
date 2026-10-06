@@ -17,7 +17,6 @@ mod color;
 mod env;
 mod error;
 mod git;
-#[cfg(test)]
 mod graph;
 mod oid;
 mod render;

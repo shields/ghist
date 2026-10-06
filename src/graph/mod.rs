@@ -14,8 +14,10 @@
 
 mod cell;
 mod layout;
+mod paint;
 
 pub use layout::Graph;
+pub use paint::Prefixes;
 
 use cell::Cell;
 
@@ -33,7 +35,7 @@ impl Shape {
         2 * self.width + 1
     }
 
-    pub fn fixed_rows(&self) -> usize {
+    pub const fn fixed_rows(&self) -> usize {
         self.rows.len()
     }
 }

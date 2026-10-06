@@ -63,7 +63,7 @@ mod tests {
                 .unwrap();
             let actual = capture(&repo);
             assert!(
-                actual.starts_with(&[git_color.as_slice(), b"sha1 "].concat()),
+                actual.starts_with(&["●  ".as_bytes(), git_color.as_slice(), b"sha1 "].concat()),
                 "{value}: {actual:?}"
             );
             assert_eq!(ansi::strip(&actual), plain, "{value}");
@@ -114,7 +114,7 @@ mod tests {
             let mut collisions = 0;
             let mut headers = 0;
             for line in colored.split(|&byte| byte == b'\n') {
-                let text = ansi::strip(line);
+                let text = crate::common::graph_text::strip(&ansi::strip(line)).unwrap();
                 let Some(after_label) = text.strip_prefix(label.as_bytes()) else {
                     continue;
                 };

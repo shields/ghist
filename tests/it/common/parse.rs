@@ -27,6 +27,7 @@ pub fn commits(bytes: &[u8]) -> Result<Vec<CommitText>, String> {
     if bytes.is_empty() {
         return Ok(Vec::new());
     }
+    let bytes = super::graph_text::strip(bytes)?;
     let mut result = Vec::<CommitText>::new();
     let mut body = false;
     for line in bytes.split(|&byte| byte == b'\n') {

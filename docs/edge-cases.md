@@ -147,8 +147,11 @@ TAB, which have separate message/framing cases.
 
 ## Graph layout
 
-| Case                                                           | Status | Coverage            |
-| -------------------------------------------------------------- | ------ | ------------------- |
-| Linear ancestry, multiple roots, and reused lane holes         | T      | Pure layout goldens |
-| Merge fan-out, existing parents, pulls, and vertical crossings | T      | Pure layout goldens |
-| Duplicate parents and lane color counter wrap                  | T      | Pure layout goldens |
+| Case                                                           | Status | Coverage                    |
+| -------------------------------------------------------------- | ------ | --------------------------- |
+| Linear ancestry, multiple roots, and reused lane holes         | T      | Pure layout goldens         |
+| Merge fan-out, existing parents, pulls, and vertical crossings | T      | Pure layout goldens         |
+| Duplicate parents and lane color counter wrap                  | T      | Pure layout goldens         |
+| Aligned graph prefixes on commit headers and messages          | T      | Renderer mockup golden      |
+| Trimmed blank rows, prior-commit separators, and leftover rows | T      | Prefix and renderer goldens |
+| Prefix output preserves every partial-write error              | T      | Renderer failure injection  |
