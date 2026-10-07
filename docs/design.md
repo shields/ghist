@@ -105,9 +105,10 @@ For each commit:
 2. Deduplicate shown parents. For a merge or new tip, advance the counter once
    per parent, including parents already assigned a lane. Existing parents
    retain their colors; new targets take the current counter.
-3. Continue the first parent in the node column. Pull an existing first parent
-   from the right; tap it if it is already to the left. Place other new parents
-   in the nearest available lane at or to the right of the node.
+3. Continue the first parent in the node column. Tap an existing first parent to
+   the left. Pull one from the right, but tap it instead if the node is not in
+   column zero and another parent is new. Place other new parents in the nearest
+   available lane at or to the right of the node.
 4. Emit node, fan-out, pull, and optional compaction rows, in that order.
    Fan-out before pull distinguishes simultaneous attachments.
 5. Move at most one lane: the rightmost occupied lane into the first earlier

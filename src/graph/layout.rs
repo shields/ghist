@@ -103,10 +103,17 @@ impl<Id: Clone + Eq> Graph<Id> {
             .lanes
             .get_mut(node)
             .expect("the node lane is allocated") = None;
+        let tap_right = node > 0
+            && assignments
+                .iter()
+                .skip(1)
+                .any(|(_, position, _)| position.is_none());
         let mut targets = Vec::new();
         let mut pull = None;
         for (index, (parent, position, color)) in assignments.into_iter().enumerate() {
-            let target = if index == 0 && position.is_none_or(|position| position >= node) {
+            let target = if index == 0
+                && position.is_none_or(|position| position == node || position > node && !tap_right)
+            {
                 if let Some(position) = position.filter(|&position| position > node) {
                     pull = Some((position, color));
                 }
@@ -306,6 +313,34 @@ mod tests {
         assert_eq!(rows(graph.next(&4, &[6, 3])), ["│ ●", "├─┤", "│ │"]);
         assert_eq!(rows(graph.next(&6, &[])), ["● │", "  │"]);
         assert_eq!(rows(graph.next(&3, &[])), ["  ●", ""]);
+    }
+
+    #[test]
+    fn merges_that_open_a_lane_tap_their_first_parent() {
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
+        graph.next(&6, &[1, 5, 4]);
+        graph.next(&4, &[3]);
+        let shape = graph.next(&5, &[3, 2]);
+        assert_eq!(rows(shape), ["│ ● │", "│ ├─┤", "│ │ │"]);
+        assert_eq!(shape.pad[2].color, 4);
+        assert_eq!(shape.pad[4].color, 2);
+        assert_eq!(rows(graph.next(&2, &[1])), ["│ ● │", "├─╯ │", "│   │"]);
+        assert_eq!(rows(graph.next(&3, &[1])), ["│   ●", "├───╯", "│"]);
+    }
+
+    #[test]
+    fn first_parents_on_the_right_are_tapped_only_when_a_lane_opens() {
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
+        graph.next(&10, &[1, 9, 8, 7]);
+        assert_eq!(
+            rows(graph.next(&9, &[7, 8, 6])),
+            ["│ ● │ │", "│ ├─┼─┤", "│ │ │ │"]
+        );
+        assert_eq!(rows(graph.next(&6, &[7])), ["│ ● │ │", "│ ├─│─╯", "│ │ │"]);
+        assert_eq!(
+            rows(graph.next(&7, &[8, 1])),
+            ["│ ● │", "├─┤ │", "│ ├─╯", "│ │"]
+        );
     }
 
     #[test]
