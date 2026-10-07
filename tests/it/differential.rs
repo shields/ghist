@@ -44,9 +44,120 @@ mod tests {
             ),
             1..13,
         );
+        seeded_cases(
+            "generated_histories_match_fuller",
+            &strategy,
+            |format, case, nodes| {
+                let repo = TestRepo::new(format).unwrap();
+                let mut history = History::default();
+                for (index, (mask, message, different, zone)) in nodes.into_iter().enumerate() {
+                    let author = Identity {
+                        date: format!(
+                            "{} {}{:02}{:02}",
+                            1_700_000_000 + index * 61,
+                            if zone < 0 { '-' } else { '+' },
+                            zone.abs() / 60,
+                            zone.abs() % 60
+                        ),
+                        ..Identity::default()
+                    };
+                    let mut committer = author.clone();
+                    if different {
+                        committer.name = b"Another author".to_vec();
+                        committer.date = "1700000000 -0330".into();
+                    }
+                    let mark = history.push(Commit {
+                        parents: (0..index)
+                            .filter(|parent| mask & (1 << parent) != 0)
+                            .map(|parent| parent + 1)
+                            .collect(),
+                        author,
+                        committer,
+                        message,
+                        encoding: Some("ISO-8859-1".into()),
+                        changes: vec![Change::Write {
+                            mode: 0o100_644,
+                            path: format!("file{}", index % 3).into_bytes(),
+                            data: format!("content {index}\n").into_bytes(),
+                        }],
+                        ..Commit::default()
+                    });
+                    history
+                        .refs
+                        .push((format!("refs/heads/node-{index}"), mark));
+                }
+                repo.import(&history).unwrap();
+                let args: Vec<_> = history.refs.iter().map(|(name, _)| name.as_str()).collect();
+                oracle::fuller(&repo, &args)
+                    .map_err(|error| TestCaseError::fail(error.to_string()))?;
+                oracle::fuller(&repo, &["HEAD", "--", "file0"])
+                    .map_err(|error| TestCaseError::fail(error.to_string()))?;
+                for color in ["never", "always"] {
+                    repo.git(["config", "color.diff", color]).unwrap();
+                    crate::common::patches::compare(&repo, &args)
+                        .map_err(|error| TestCaseError::fail(error.to_string()))?;
+                }
+                repo.git([
+                    "config",
+                    "color.diff",
+                    if case % 2 == 0 { "never" } else { "always" },
+                ])
+                .unwrap();
+                let stat_compare = if case % 2 == 0 {
+                    crate::common::stats::compare
+                } else {
+                    crate::common::stats::combined
+                };
+                stat_compare(&repo, &args, 20 + usize::try_from(case % 181).unwrap())
+                    .map_err(|error| TestCaseError::fail(error.to_string()))?;
+                Ok(())
+            },
+        );
+    }
+
+    #[test]
+    fn long_generated_histories_match_fuller() {
+        let strategy = prop::collection::vec(prop::collection::vec(1..=24_usize, 0..=3), 20..61);
+        seeded_cases(
+            "long_generated_histories_match_fuller",
+            &strategy,
+            |format, _, nodes| {
+                let repo = TestRepo::new(format).unwrap();
+                let mut history = History::default();
+                for (index, offsets) in nodes.into_iter().enumerate() {
+                    let mut parents = Vec::new();
+                    for offset in offsets.into_iter().filter(|&offset| offset <= index) {
+                        let parent = index + 1 - offset;
+                        if !parents.contains(&parent) {
+                            parents.push(parent);
+                        }
+                    }
+                    let mark = history.push(Commit {
+                        parents,
+                        message: format!("node {index}\n").into_bytes(),
+                        ..Commit::default()
+                    });
+                    history
+                        .refs
+                        .push((format!("refs/heads/node-{index}"), mark));
+                }
+                repo.import(&history).unwrap();
+                let args: Vec<_> = history.refs.iter().map(|(name, _)| name.as_str()).collect();
+                oracle::fuller(&repo, &args)
+                    .map_err(|error| TestCaseError::fail(error.to_string()))?;
+                Ok(())
+            },
+        );
+    }
+
+    fn seeded_cases<S: Strategy>(
+        name: &'static str,
+        strategy: &S,
+        test: impl Fn(&str, u32, S::Value) -> Result<(), TestCaseError>,
+    ) {
         let config = Config {
             source_file: Some(file!()),
-            test_name: Some("generated_histories_match_fuller"),
+            test_name: Some(name),
             ..Config::default()
         };
         for case in 0..config.cases {
@@ -62,71 +173,7 @@ mod tests {
             );
             let format = if case % 8 == 0 { "sha256" } else { "sha1" };
             runner
-                .run(&strategy, |nodes| {
-                    let repo = TestRepo::new(format).unwrap();
-                    let mut history = History::default();
-                    for (index, (mask, message, different, zone)) in nodes.into_iter().enumerate() {
-                        let author = Identity {
-                            date: format!(
-                                "{} {}{:02}{:02}",
-                                1_700_000_000 + index * 61,
-                                if zone < 0 { '-' } else { '+' },
-                                zone.abs() / 60,
-                                zone.abs() % 60
-                            ),
-                            ..Identity::default()
-                        };
-                        let mut committer = author.clone();
-                        if different {
-                            committer.name = b"Another author".to_vec();
-                            committer.date = "1700000000 -0330".into();
-                        }
-                        let mark = history.push(Commit {
-                            parents: (0..index)
-                                .filter(|parent| mask & (1 << parent) != 0)
-                                .map(|parent| parent + 1)
-                                .collect(),
-                            author,
-                            committer,
-                            message,
-                            encoding: Some("ISO-8859-1".into()),
-                            changes: vec![Change::Write {
-                                mode: 0o100_644,
-                                path: format!("file{}", index % 3).into_bytes(),
-                                data: format!("content {index}\n").into_bytes(),
-                            }],
-                            ..Commit::default()
-                        });
-                        history
-                            .refs
-                            .push((format!("refs/heads/node-{index}"), mark));
-                    }
-                    repo.import(&history).unwrap();
-                    let args: Vec<_> = history.refs.iter().map(|(name, _)| name.as_str()).collect();
-                    oracle::fuller(&repo, &args)
-                        .map_err(|error| TestCaseError::fail(error.to_string()))?;
-                    oracle::fuller(&repo, &["HEAD", "--", "file0"])
-                        .map_err(|error| TestCaseError::fail(error.to_string()))?;
-                    for color in ["never", "always"] {
-                        repo.git(["config", "color.diff", color]).unwrap();
-                        crate::common::patches::compare(&repo, &args)
-                            .map_err(|error| TestCaseError::fail(error.to_string()))?;
-                    }
-                    repo.git([
-                        "config",
-                        "color.diff",
-                        if case % 2 == 0 { "never" } else { "always" },
-                    ])
-                    .unwrap();
-                    let stat_compare = if case % 2 == 0 {
-                        crate::common::stats::compare
-                    } else {
-                        crate::common::stats::combined
-                    };
-                    stat_compare(&repo, &args, 20 + usize::try_from(case % 181).unwrap())
-                        .map_err(|error| TestCaseError::fail(error.to_string()))?;
-                    Ok(())
-                })
+                .run(strategy, |value| test(format, case, value))
                 .unwrap_or_else(|error| panic!("case {case} ({format}): {error}"));
         }
     }

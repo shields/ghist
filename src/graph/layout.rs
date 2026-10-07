@@ -19,6 +19,8 @@ use super::{
     cell::{Cell, DOWN, LEFT, RIGHT, UP},
 };
 
+const HOLE_AGE: usize = 16;
+
 #[derive(Clone)]
 struct Lane<Id> {
     target: Id,
@@ -26,7 +28,8 @@ struct Lane<Id> {
 }
 
 pub struct Graph<Id> {
-    lanes: Vec<Option<Lane<Id>>>,
+    lanes: Vec<Result<Lane<Id>, usize>>,
+    tick: usize,
     ncolors: NonZeroUsize,
     counter: usize,
     shape: Shape,
@@ -36,6 +39,7 @@ impl<Id: Clone + Eq> Graph<Id> {
     pub fn new(ncolors: NonZeroUsize) -> Self {
         Self {
             lanes: Vec::new(),
+            tick: 0,
             counter: ncolors.get() - 1,
             ncolors,
             shape: Shape::default(),
@@ -45,17 +49,17 @@ impl<Id: Clone + Eq> Graph<Id> {
     fn find(&self, id: &Id) -> Option<usize> {
         self.lanes
             .iter()
-            .position(|lane| lane.as_ref().is_some_and(|lane| lane.target == *id))
+            .position(|lane| lane.as_ref().is_ok_and(|lane| lane.target == *id))
     }
 
     fn place(&mut self, start: usize, target: Id, color: usize) -> usize {
-        let lane = Some(Lane { target, color });
+        let lane = Ok(Lane { target, color });
         if let Some((index, slot)) = self
             .lanes
             .iter_mut()
             .enumerate()
             .skip(start)
-            .find(|(_, slot)| slot.is_none())
+            .find(|(_, slot)| slot.is_err())
         {
             *slot = lane;
             index
@@ -64,6 +68,15 @@ impl<Id: Clone + Eq> Graph<Id> {
             self.lanes.push(lane);
             index
         }
+    }
+
+    #[track_caller]
+    fn vacate(&mut self, column: usize) -> Lane<Id> {
+        let slot = self
+            .lanes
+            .get_mut(column)
+            .expect("the vacated column is allocated");
+        std::mem::replace(slot, Err(self.tick)).expect("the vacated column is occupied")
     }
 
     pub fn next(&mut self, id: &Id, shown: &[Id]) -> &Shape {
@@ -95,14 +108,11 @@ impl<Id: Clone + Eq> Graph<Id> {
             let position = self.find(parent);
             let color = position
                 .and_then(|index| self.lanes.get(index))
-                .and_then(Option::as_ref)
+                .and_then(|lane| lane.as_ref().ok())
                 .map_or(self.counter, |lane| lane.color);
             assignments.push((parent.clone(), position, color));
         }
-        *self
-            .lanes
-            .get_mut(node)
-            .expect("the node lane is allocated") = None;
+        self.vacate(node);
         let tap_right = node > 0
             && assignments
                 .iter()
@@ -120,7 +130,7 @@ impl<Id: Clone + Eq> Graph<Id> {
                 *self
                     .lanes
                     .get_mut(node)
-                    .expect("the node lane is allocated") = Some(Lane {
+                    .expect("the node lane is allocated") = Ok(Lane {
                     target: parent,
                     color,
                 });
@@ -139,44 +149,34 @@ impl<Id: Clone + Eq> Graph<Id> {
             set(&mut row, node, UP | DOWN | RIGHT, color);
             set(&mut row, source, UP | LEFT, color);
             self.shape.rows.push(row);
-            *self
-                .lanes
-                .get_mut(source)
-                .expect("a pull starts at an occupied lane") = None;
+            self.vacate(source);
         }
-        self.compact(node);
-        while self.lanes.last().is_some_and(Option::is_none) {
+        self.compact();
+        while self.lanes.last().is_some_and(Result::is_err) {
             self.lanes.pop();
         }
+        self.tick += 1;
         self.shape.width = self.shape.width.max(self.lanes.len());
         self.shape.pad = vertical(&self.lanes);
         &self.shape
     }
 
-    fn compact(&mut self, node: usize) {
-        let Some(source) = self.lanes.iter().rposition(Option::is_some) else {
+    fn compact(&mut self) {
+        let Some(source) = self.lanes.iter().rposition(Result::is_ok) else {
             return;
         };
-        let Some(target) = self
-            .lanes
-            .iter()
-            .enumerate()
-            .take(source)
-            .find_map(|(index, lane)| (index != node && lane.is_none()).then_some(index))
-        else {
+        let Some(target) = self.lanes.iter().take(source).position(|lane| {
+            lane.as_ref()
+                .is_err_and(|&freed| self.tick - freed >= HOLE_AGE)
+        }) else {
             return;
         };
         let mut row = vertical(&self.lanes);
-        let moving = self
-            .lanes
-            .get_mut(source)
-            .expect("the rightmost occupied lane is allocated")
-            .take()
-            .expect("the source lane is occupied");
+        let moving = self.vacate(source);
         connect(&mut row, target, source, moving.color);
         set(&mut row, target, DOWN | RIGHT, moving.color);
         set(&mut row, source, UP | LEFT, moving.color);
-        *self.lanes.get_mut(target).expect("the hole is allocated") = Some(moving);
+        *self.lanes.get_mut(target).expect("the hole is allocated") = Ok(moving);
         self.shape.rows.push(row);
     }
 
@@ -215,7 +215,7 @@ impl<Id: Clone + Eq> Graph<Id> {
                 color,
             );
         }
-        let continuation = self.lanes.get(node).and_then(Option::as_ref);
+        let continuation = self.lanes.get(node).and_then(|lane| lane.as_ref().ok());
         let horizontal = row
             .get(2 * node)
             .map_or(0, |cell| cell.arms & (LEFT | RIGHT));
@@ -230,10 +230,10 @@ impl<Id: Clone + Eq> Graph<Id> {
     }
 }
 
-fn vertical<Id>(lanes: &[Option<Lane<Id>>]) -> Row {
+fn vertical<Id>(lanes: &[Result<Lane<Id>, usize>]) -> Row {
     let mut row = vec![Cell::default(); lanes.len().saturating_mul(2).saturating_sub(1)];
     for (index, lane) in lanes.iter().enumerate() {
-        if let Some(lane) = lane {
+        if let Ok(lane) = lane {
             set(&mut row, index, UP | DOWN, lane.color);
         }
     }
@@ -303,13 +303,13 @@ mod tests {
         assert_eq!(rows(graph.next(&9, &[8, 7, 6])), ["●", "├─┬─╮", "│ │ │"]);
         assert_eq!(
             rows(graph.next(&8, &[6, 5])),
-            ["● │ │", "├─│─│─╮", "├─│─╯ │", "│ │ ╭─╯", "│ │ │"]
+            ["● │ │", "├─│─│─╮", "├─│─╯ │", "│ │   │"]
         );
         assert_eq!(
             rows(graph.next(&7, &[6, 5, 4])),
-            ["│ ● │", "├─┼─┤", "│ │ │"]
+            ["│ ●   │", "├─┼───┤", "│ │   │"]
         );
-        assert_eq!(rows(graph.next(&5, &[6])), ["│ │ ●", "├─│─╯", "│ │"]);
+        assert_eq!(rows(graph.next(&5, &[6])), ["│ │   ●", "├─│───╯", "│ │"]);
         assert_eq!(rows(graph.next(&4, &[6, 3])), ["│ ●", "├─┤", "│ │"]);
         assert_eq!(rows(graph.next(&6, &[])), ["● │", "  │"]);
         assert_eq!(rows(graph.next(&3, &[])), ["  ●", ""]);
@@ -344,19 +344,52 @@ mod tests {
     }
 
     #[test]
-    fn compaction_crosses_lanes_and_preserves_the_moving_color() {
+    fn compaction_waits_sixteen_commits_and_preserves_the_moving_color() {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
-        graph.next(&10, &[9, 8, 7, 6]);
+        graph.next(&10, &[20, 8, 7, 6]);
         let shape = graph.next(&8, &[]);
         assert_eq!(rows(shape), ["│ ● │ │", "│   │ │"]);
-        let shape = graph.next(&7, &[5, 9]);
-        assert_eq!(rows(shape), ["│   ● │", "├───┤ │", "│ ╭─│─╯", "│ │ │"]);
-        assert_eq!(shape.fixed_rows(), 3);
+        let shape = graph.next(&7, &[5, 20]);
+        assert_eq!(rows(shape), ["│   ● │", "├───┤ │", "│   │ │"]);
+        for id in 20..34 {
+            assert_eq!(rows(graph.next(&id, &[id + 1])), ["●   │ │", "│   │ │"]);
+        }
+        let shape = graph.next(&34, &[35]);
+        assert_eq!(rows(shape), ["●   │ │", "│ ╭─│─╯", "│ │ │"]);
+        assert_eq!(shape.fixed_rows(), 2);
         assert_eq!(shape.text_column(), 9);
-        assert_eq!(shape.rows[2][2].color, 3);
-        assert_eq!(shape.rows[2][4].color, 4);
-        assert_eq!(shape.rows[2][6].color, 3);
+        assert_eq!(shape.rows[1][2].color, 3);
+        assert_eq!(shape.rows[1][4].color, 4);
+        assert_eq!(shape.rows[1][6].color, 3);
         assert_eq!(shape.pad[2].color, 3);
+    }
+
+    #[test]
+    fn compaction_follows_fanout_and_pull_rows() {
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
+        graph.next(&100, &[20, 60, 70, 80]);
+        graph.next(&60, &[]);
+        for id in 20..35 {
+            graph.next(&id, &[id + 1]);
+        }
+        assert_eq!(
+            rows(graph.next(&70, &[80, 35])),
+            ["│   ● │", "├───┤ │", "│   ├─╯", "│ ╭─╯", "│ │"]
+        );
+    }
+
+    #[test]
+    fn compaction_skips_newer_holes() {
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
+        graph.next(&100, &[10, 2, 3, 4, 5]);
+        graph.next(&4, &[]);
+        for id in 10..25 {
+            graph.next(&id, &[id + 1]);
+        }
+        assert_eq!(
+            rows(graph.next(&25, &[2])),
+            ["● │ │   │", "├─╯ │   │", "│   │ ╭─╯", "│   │ │"]
+        );
     }
 
     #[test]

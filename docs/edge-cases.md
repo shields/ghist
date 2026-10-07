@@ -167,7 +167,8 @@ TAB, which have separate message/framing cases.
 | Exclusion and symmetric ranges have no dangling parent lanes                     | T      | `tests/it/ranges.rs`, both object formats            |
 | Path-limited boundaries follow Git’s rewritten parents                           | T      | `path_limited_ranges_hide_rewritten_parents`         |
 | Ordinary revisions skip the pre-pass; Git errors preserve status and stderr      | T      | Fake-Git command counts and failure cases            |
-| Compaction moves one rightmost lane into a hole without changing edges or colors | T      | Layout goldens, exhaustive DAGs, generated histories |
+| Compaction moves one rightmost lane into a hole without changing edges or colors | T      | Layout goldens and long generated histories          |
+| Holes wait 16 commits before compaction, so a jog can follow any commit          | T      | Layout goldens and an oracle-checked history         |
 
 ## Pager and output lifecycle
 

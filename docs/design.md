@@ -112,7 +112,9 @@ For each commit:
 4. Emit node, fan-out, pull, and optional compaction rows, in that order.
    Fan-out before pull distinguishes simultaneous attachments.
 5. Move at most one lane: the rightmost occupied lane into the first earlier
-   hole, excluding the node column. Trim trailing holes.
+   hole that has been empty for 16 commits. A new lane usually reuses a hole
+   sooner, so waiting saves the jog, at the cost of width; the jog can follow
+   any commit. Trim trailing holes.
 
 Cells carry directional arms and a color. A `│` between horizontal segments is a
 crossing with the vertical on top; `┼` is a junction. Horizontal spans use the

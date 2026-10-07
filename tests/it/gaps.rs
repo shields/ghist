@@ -117,4 +117,48 @@ mod tests {
             oracle::fuller(&repo, &args).unwrap();
         }
     }
+
+    #[test]
+    fn a_lane_moves_into_an_old_hole_without_changing_edges() {
+        let repo = TestRepo::new("sha1").unwrap();
+        let mut history = History::default();
+        let mut chain = history.push(Commit {
+            message: b"chain 0\n".to_vec(),
+            ..Commit::default()
+        });
+        for index in 1..20 {
+            chain = history.push(Commit {
+                parents: vec![chain],
+                message: format!("chain {index}\n").into_bytes(),
+                ..Commit::default()
+            });
+        }
+        let base = history.push(Commit {
+            message: b"base\n".to_vec(),
+            ..Commit::default()
+        });
+        let side = history.push(Commit {
+            parents: vec![chain],
+            message: b"side\n".to_vec(),
+            ..Commit::default()
+        });
+        let merge = history.push(Commit {
+            parents: vec![base, chain],
+            message: b"merge\n".to_vec(),
+            ..Commit::default()
+        });
+        history.push(Commit {
+            parents: vec![base, merge, side],
+            message: b"octopus\n".to_vec(),
+            ..Commit::default()
+        });
+        repo.import(&history).unwrap();
+        let out = String::from_utf8(oracle::fuller(&repo, &[]).unwrap()).unwrap();
+        let sixteenth = repo.git(["rev-parse", "HEAD^2^2~15"]).unwrap();
+        let sixteenth = std::str::from_utf8(sixteenth.trim_ascii_end()).unwrap();
+        assert!(
+            out.contains(&format!("│   ●  sha1 {sixteenth}\n│ ╭─╯  Author:")),
+            "{out}"
+        );
+    }
 }

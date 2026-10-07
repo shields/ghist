@@ -16,7 +16,7 @@ use ghist::Exit;
 
 use super::{parse, repo::TestRepo};
 
-pub fn fuller(repo: &TestRepo, args: &[&str]) -> std::io::Result<()> {
+pub fn fuller(repo: &TestRepo, args: &[&str]) -> std::io::Result<Vec<u8>> {
     let mut invocation = vec![
         "log",
         "--pretty=fuller",
@@ -58,5 +58,5 @@ pub fn fuller(repo: &TestRepo, args: &[&str]) -> std::io::Result<()> {
         }
     }
     super::graph_oracle::compare(repo, &actual, args)?;
-    Ok(())
+    Ok(actual)
 }
