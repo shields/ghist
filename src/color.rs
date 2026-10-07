@@ -255,7 +255,10 @@ fn graph_colors(config: &Config) -> Result<Vec<Sgr>, Error> {
     if bytes.is_empty() {
         return Ok(Vec::new());
     }
+    // Git stops at the end of the string, so a trailing comma starts no entry.
     bytes
+        .strip_suffix(b",")
+        .unwrap_or(bytes)
         .split(|&byte| byte == b',')
         .map(|entry| parse(entry).ok_or_else(failure))
         .collect()
@@ -327,6 +330,16 @@ mod tests {
                 Sgr(b"\x1b[34m".to_vec())
             ]
         );
+        for (value, len) in [
+            (b",".as_slice(), 1),
+            (b",,", 2),
+            (b"red,", 1),
+            (b"red,,", 2),
+            (b"red,blue,", 2),
+        ] {
+            let config = Config::parse(&[b"log.graphcolors\n", value, b"\0"].concat()).unwrap();
+            assert_eq!(graph_colors(&config).unwrap().len(), len);
+        }
         let large = format!("log.graphcolors\n{}blue\0", "red,".repeat(69_999));
         assert_eq!(
             graph_colors(&Config::parse(large.as_bytes()).unwrap())

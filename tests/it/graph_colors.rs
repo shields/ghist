@@ -105,6 +105,9 @@ mod tests {
                 Some("red,green,blue"),
                 Some("bold blue, #a1b2c3, 200"),
                 Some("red,,blue"),
+                Some("red,"),
+                Some("red,,"),
+                Some("red,blue,"),
             ] {
                 if let Some(palette) = palette {
                     repo.git(["config", "log.graphColors", palette]).unwrap();

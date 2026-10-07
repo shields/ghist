@@ -162,6 +162,7 @@ TAB, which have separate message/framing cases.
 | Default and configured lane colors agree with Git                                | T      | Incoming-edge colors in both object formats          |
 | Empty palettes, empty entries, and more than 65,535 colors                       | T      | Palette parsing and color-counter bounds             |
 | Empty palette leaves lanes uncolored; Git divides by zero (SIGFPE on x86)        | T      | Compared with Git’s `normal` palette                 |
+| A trailing comma adds no palette entry                                           | T      | Compared with Git’s lanes for `red,` and `red,blue,` |
 | Exclusion and symmetric ranges have no dangling parent lanes                     | T      | `tests/it/ranges.rs`, both object formats            |
 | Path-limited boundaries follow Git’s rewritten parents                           | T      | `path_limited_ranges_hide_rewritten_parents`         |
 | Ordinary revisions skip the pre-pass; Git errors preserve status and stderr      | T      | Fake-Git command counts and failure cases            |
