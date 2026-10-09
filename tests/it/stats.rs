@@ -184,8 +184,14 @@ cat-file)
     case "$MODE" in
     failed) printf 'size failed\n' >&2; exit 7 ;;
     unterminated) IFS= read -r hash; printf '12'; exit 0 ;;
-    # exec closes saved stdin descriptors before the reply allows another write.
-    closed) IFS= read -r hash; exec /usr/bin/printf '12\n' </dev/null ;;
+    # Replies are written ahead, so lookups continue until a write to the closed input fails.
+    closed)
+        IFS= read -r hash
+        exec 0<&-
+        i=0
+        while test "$i" -lt 2048; do printf '12\n'; i=$((i + 1)); done
+        exit 0
+        ;;
     waiting) while test ! -e "$RELEASE"; do :; done; exit 0 ;;
     esac
     while IFS= read -r hash; do
@@ -245,41 +251,65 @@ esac
         }
     }
 
+    fn bounded_run(ctx: &ghist::Context) -> (ghist::Exit, Vec<u8>) {
+        use std::sync::{atomic::Ordering, mpsc};
+        use std::time::Duration;
+
+        let (send, receive) = mpsc::channel();
+        std::thread::scope(|scope| {
+            scope.spawn(move || {
+                let mut err = Vec::new();
+                let exit = ghist::run(ctx, &mut Vec::new(), &mut err);
+                send.send((exit, err)).unwrap();
+            });
+            let completed = receive.recv_timeout(Duration::from_secs(30));
+            if completed.is_err() {
+                ctx.signal.store(15, Ordering::Relaxed);
+            }
+            completed.expect("size lookup did not finish")
+        })
+    }
+
     #[test]
     fn size_failures_preserve_exit_status_diagnostics_and_walk_error_precedence() {
-        let diff = b":100644 100644 1234 abcd M\tpath\n-\t-\tpath\n";
-        for (mode, status, diagnostic) in [
-            ("failed", 7, "size failed"),
-            ("malformed", 1, "invalid object size"),
-            ("unterminated", 1, "unterminated object size"),
-            ("closed", 1, "git input:"),
+        use std::fmt::Write as _;
+
+        // A write can succeed after the fake closes its input: macOS may finish
+        // closing a pipe after close returns, and a child another test thread spawns
+        // can hold the read end until it execs, or for its whole life on macOS, where
+        // std sets close-on-exec after pipe(). More lookups of distinct objects than
+        // a 64 KiB pipe holds make a write wait for the read end to close, then fail.
+        let mut closed = String::new();
+        for old in 1..=1024 {
+            let new = old + 1024;
+            writeln!(closed, ":100644 100644 {old:040x} {new:040x} M\tpath").unwrap();
+        }
+        closed.push_str(&"-\t-\tpath\n".repeat(1024));
+        let small = b":100644 100644 1234 abcd M\tpath\n-\t-\tpath\n".as_slice();
+        for (mode, diff, status, diagnostic) in [
+            ("failed", small, 7, "size failed"),
+            ("malformed", small, 1, "invalid object size"),
+            ("unterminated", small, 1, "unterminated object size"),
+            ("closed", closed.as_bytes(), 1, "git input:"),
         ] {
             let (_repo, ctx) = fake_sizes(diff, mode);
-            let mut err = Vec::new();
-            assert_eq!(
-                ghist::run(&ctx, &mut Vec::new(), &mut err),
-                ghist::Exit::Code(status),
-                "{mode}: {err:?}"
-            );
+            let (exit, err) = bounded_run(&ctx);
+            assert_eq!(exit, ghist::Exit::Code(status), "{mode}: {err:?}");
             assert!(
                 String::from_utf8_lossy(&err).contains(diagnostic),
                 "{mode}: {err:?}"
             );
         }
-        for (mode, extra) in [
-            ("normal", "size warning\n"),
-            ("failed", "size failed\n"),
-            ("closed", ""),
+        for (mode, diff, extra) in [
+            ("normal", small, "size warning\n"),
+            ("failed", small, "size failed\n"),
+            ("closed", closed.as_bytes(), ""),
         ] {
             let (_repo, mut ctx) = fake_sizes(diff, mode);
             ctx.env.push(("LOG_STATUS".into(), "6".into()));
             ctx.env.push(("WARNING".into(), "size warning".into()));
-            let mut err = Vec::new();
-            assert_eq!(
-                ghist::run(&ctx, &mut Vec::new(), &mut err),
-                ghist::Exit::Code(6),
-                "{mode}: {err:?}"
-            );
+            let (exit, err) = bounded_run(&ctx);
+            assert_eq!(exit, ghist::Exit::Code(6), "{mode}: {err:?}");
             assert_eq!(err, format!("{extra}walk failed\n").as_bytes());
         }
     }
