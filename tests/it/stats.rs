@@ -184,12 +184,15 @@ cat-file)
     case "$MODE" in
     failed) printf 'size failed\n' >&2; exit 7 ;;
     unterminated) IFS= read -r hash; printf '12'; exit 0 ;;
-    # Replies are written ahead, so lookups continue until a write to the closed input fails.
+    # One reply per lookup is written ahead, so lookups continue until a write to the closed input fails.
     closed)
         IFS= read -r hash
         exec 0<&-
-        i=0
-        while test "$i" -lt 2048; do printf '12\n'; i=$((i + 1)); done
+        replies='12
+'
+        n=1
+        while test "$n" -lt 32768; do replies=$replies$replies; n=$((n * 2)); done
+        printf %s "$replies"
         exit 0
         ;;
     waiting) while test ! -e "$RELEASE"; do :; done; exit 0 ;;
@@ -251,7 +254,7 @@ esac
         }
     }
 
-    fn bounded_run(ctx: &ghist::Context) -> (ghist::Exit, Vec<u8>) {
+    fn bounded_run(ctx: &ghist::Context, mode: &str) -> (ghist::Exit, Vec<u8>) {
         use std::sync::{atomic::Ordering, mpsc};
         use std::time::Duration;
 
@@ -266,7 +269,8 @@ esac
             if completed.is_err() {
                 ctx.signal.store(15, Ordering::Relaxed);
             }
-            completed.expect("size lookup did not finish")
+            completed
+                .unwrap_or_else(|error| panic!("{mode}: size lookup did not finish: {error:?}"))
         })
     }
 
@@ -277,14 +281,15 @@ esac
         // A write can succeed after the fake closes its input: macOS may finish
         // closing a pipe after close returns, and a child another test thread spawns
         // can hold the read end until it execs, or for its whole life on macOS, where
-        // std sets close-on-exec after pipe(). More lookups of distinct objects than
-        // a 64 KiB pipe holds make a write wait for the read end to close, then fail.
+        // std sets close-on-exec after pipe(). Lookups of distinct objects totaling
+        // more than 1 MiB, the largest default pipe (16 pages of 64 KiB on Linux), make
+        // a write wait for the read end to close, then fail.
         let mut closed = String::new();
-        for old in 1..=1024 {
-            let new = old + 1024;
+        for old in 1..=16384 {
+            let new = old + 16384;
             writeln!(closed, ":100644 100644 {old:040x} {new:040x} M\tpath").unwrap();
         }
-        closed.push_str(&"-\t-\tpath\n".repeat(1024));
+        closed.push_str(&"-\t-\tpath\n".repeat(16384));
         let small = b":100644 100644 1234 abcd M\tpath\n-\t-\tpath\n".as_slice();
         for (mode, diff, status, diagnostic) in [
             ("failed", small, 7, "size failed"),
@@ -293,7 +298,7 @@ esac
             ("closed", closed.as_bytes(), 1, "git input:"),
         ] {
             let (_repo, ctx) = fake_sizes(diff, mode);
-            let (exit, err) = bounded_run(&ctx);
+            let (exit, err) = bounded_run(&ctx, mode);
             assert_eq!(exit, ghist::Exit::Code(status), "{mode}: {err:?}");
             assert!(
                 String::from_utf8_lossy(&err).contains(diagnostic),
@@ -308,7 +313,7 @@ esac
             let (_repo, mut ctx) = fake_sizes(diff, mode);
             ctx.env.push(("LOG_STATUS".into(), "6".into()));
             ctx.env.push(("WARNING".into(), "size warning".into()));
-            let (exit, err) = bounded_run(&ctx);
+            let (exit, err) = bounded_run(&ctx, mode);
             assert_eq!(exit, ghist::Exit::Code(6), "{mode}: {err:?}");
             assert_eq!(err, format!("{extra}walk failed\n").as_bytes());
         }
