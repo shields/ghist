@@ -170,6 +170,10 @@ mod tests {
         bytes.extend_from_slice(b"\n\n");
         bytes.extend_from_slice(diff);
         repo.write("stream", &bytes).unwrap();
+        let raw = diff.split(|&byte| byte == b'\n');
+        let sides = 2 * raw.filter(|line| line.starts_with(b":")).count();
+        repo.write("replies", "12\n".repeat(sides).as_bytes())
+            .unwrap();
         let mut ctx = repo
             .fake_git(
                 br#"case "$2" in
@@ -185,16 +189,7 @@ cat-file)
     failed) printf 'size failed\n' >&2; exit 7 ;;
     unterminated) IFS= read -r hash; printf '12'; exit 0 ;;
     # One reply per lookup is written ahead, so lookups continue until a write to the closed input fails.
-    closed)
-        IFS= read -r hash
-        exec 0<&-
-        replies='12
-'
-        n=1
-        while test "$n" -lt 32768; do replies=$replies$replies; n=$((n * 2)); done
-        printf %s "$replies"
-        exit 0
-        ;;
+    closed) IFS= read -r hash; exec /bin/cat "$REPLIES" 0<&- ;;
     waiting) while test ! -e "$RELEASE"; do :; done; exit 0 ;;
     esac
     while IFS= read -r hash; do
@@ -210,6 +205,7 @@ esac
         ctx.args = vec!["--stat".into()];
         for (key, name) in [
             ("STREAM", "stream"),
+            ("REPLIES", "replies"),
             ("STARTED", "started"),
             ("LOOKUPS", "lookups"),
         ] {
@@ -260,17 +256,21 @@ esac
 
         let (send, receive) = mpsc::channel();
         std::thread::scope(|scope| {
-            scope.spawn(move || {
+            let worker = scope.spawn(move || {
                 let mut err = Vec::new();
                 let exit = ghist::run(ctx, &mut Vec::new(), &mut err);
                 send.send((exit, err)).unwrap();
             });
-            let completed = receive.recv_timeout(Duration::from_secs(30));
-            if completed.is_err() {
-                ctx.signal.store(15, Ordering::Relaxed);
+            match receive.recv_timeout(Duration::from_secs(30)) {
+                Ok(result) => result,
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    std::panic::resume_unwind(worker.join().unwrap_err())
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    ctx.signal.store(15, Ordering::Relaxed);
+                    panic!("{mode}: size lookup did not finish");
+                }
             }
-            completed
-                .unwrap_or_else(|error| panic!("{mode}: size lookup did not finish: {error:?}"))
         })
     }
 
@@ -282,14 +282,15 @@ esac
         // closing a pipe after close returns, and a child another test thread spawns
         // can hold the read end until it execs, or for its whole life on macOS, where
         // std sets close-on-exec after pipe(). Lookups of distinct objects totaling
-        // more than 1 MiB, the largest default pipe (16 pages of 64 KiB on Linux), make
-        // a write wait for the read end to close, then fail.
+        // more than 1 MiB, the largest default pipe with pages of at most 64 KiB (16
+        // pages on Linux), make a write wait for the read end to close, then fail.
+        let entries = 16384;
         let mut closed = String::new();
-        for old in 1..=16384 {
-            let new = old + 16384;
+        for old in 1..=entries {
+            let new = old + entries;
             writeln!(closed, ":100644 100644 {old:040x} {new:040x} M\tpath").unwrap();
         }
-        closed.push_str(&"-\t-\tpath\n".repeat(16384));
+        closed.push_str(&"-\t-\tpath\n".repeat(entries));
         let small = b":100644 100644 1234 abcd M\tpath\n-\t-\tpath\n".as_slice();
         for (mode, diff, status, diagnostic) in [
             ("failed", small, 7, "size failed"),
@@ -313,7 +314,7 @@ esac
             let (_repo, mut ctx) = fake_sizes(diff, mode);
             ctx.env.push(("LOG_STATUS".into(), "6".into()));
             ctx.env.push(("WARNING".into(), "size warning".into()));
-            let (exit, err) = bounded_run(&ctx, mode);
+            let (exit, err) = bounded_run(&ctx, &format!("{mode} with a failing walk"));
             assert_eq!(exit, ghist::Exit::Code(6), "{mode}: {err:?}");
             assert_eq!(err, format!("{extra}walk failed\n").as_bytes());
         }
