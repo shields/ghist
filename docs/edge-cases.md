@@ -40,6 +40,24 @@ colon-separated list of repositories to compare their full histories too.
 | Partial stdout and stderr writes, flush failures                   | T      | `tests::handles_*`                                  |
 | Quiet broken pipe                                                  | T      | `tests/it/pipes.rs`, partial-write checks           |
 
+## Shell completions
+
+| Dimension                                                                        | Status | Evidence                                                                             |
+| -------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------ |
+| Bash and Zsh options, shell names, and unsupported options                       | T      | `tests/it/completions.rs`, real interactive Tab completion                           |
+| Branches, tags, remote refs, HEAD, ranges, and exclusions in both object formats | T      | `refs_ranges_exclusions_and_paths`                                                   |
+| Ambiguous refs; literal metacharacters in quoted refs, ranges, and exclusions    | T      | `ambiguous_refs_and_literal_shell_metacharacters`                                    |
+| Spaces in files and directories; only paths after `--`                           | T      | `refs_ranges_exclusions_and_paths`                                                   |
+| Filesystem completion outside a repository                                       | T      | `paths_outside_a_repository`                                                         |
+| Script generation avoids Git and preserves output errors                         | T      | `informational_options_do_not_start_git`, `tests::handles_each_partial_stdout_write` |
+| Missing or unsupported completion shell exits 2                                  | T      | `args::tests::completions_require_a_supported_shell`                                 |
+
+Newlines in paths and Zsh autoloaded scripts are tested by
+`newlines_in_paths_and_zsh_autoload`. Bash tests run both `bash` from `PATH` and
+`/bin/bash`, exercising macOS’s Bash 3.2 and any newer installed Bash. Bash ref
+completions are shell-escaped before insertion; filename fallback keeps
+Readline’s quoting for paths.
+
 ## History and display
 
 | Dimension                                           | Status | Evidence                                                     |

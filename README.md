@@ -32,7 +32,8 @@ Use `-p` or `--patch` for patches, `--stat` for a summary, or both. Merges show
 neither. Root commits show changes against the empty tree unless `log.showRoot`
 is false. Git’s diff algorithm, rename detection, and diff colors apply.
 
-The other flags are `-h`/`--help` and `--version`. There are no display flags.
+The other flags are `-h`/`--help`, `--version`, and `--completions <bash|zsh>`.
+There are no display flags.
 
 ## Display
 
@@ -90,10 +91,31 @@ first-page latency:
 git commit-graph write --reachable
 ```
 
+## Shell completions
+
+For Bash, including macOS’s Bash 3.2, add this to `~/.bashrc`:
+
+```sh
+source <(ghist --completions bash)
+```
+
+For Zsh, add this to `~/.zshrc` after initializing completion:
+
+```sh
+autoload -Uz compinit
+compinit
+source <(ghist --completions zsh)
+```
+
+Completions include supported options, local branches, tags, remote refs,
+`HEAD`, revision ranges, exclusions, and filesystem paths. After `--`, only
+paths are offered. The scripts use Git directly and require no additional
+completion package. Generating a script works outside a Git repository.
+
 ## Development
 
-Install [Bun](https://bun.sh/), [Lefthook](https://lefthook.dev/), and
-[cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov), then run:
+Install Bash, Zsh, [Bun](https://bun.sh/), [Lefthook](https://lefthook.dev/),
+and [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov), then run:
 
 ```sh
 bun install --frozen-lockfile

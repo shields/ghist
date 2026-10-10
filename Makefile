@@ -31,6 +31,9 @@ test:
 	cargo test --all-targets
 
 lint:
+	bash -n completions/ghist.bash
+	zsh -n completions/ghist.zsh
+	zsh -n tests/it/common/completion.zsh
 	cargo fmt --check
 	cargo clippy --all-targets -- -D warnings
 	$(PRETTIER) --check .

@@ -37,6 +37,13 @@ mod tests {
             assert!(out.starts_with(b"ghist"));
             assert_eq!(err, b"");
         }
+        for shell in ["bash", "zsh"] {
+            ctx.args = vec!["--completions".into(), shell.into()];
+            let (exit, out, err) = capture(&ctx);
+            assert_eq!(exit, Exit::Code(0));
+            assert_ne!(out, []);
+            assert_eq!(err, b"");
+        }
     }
 
     #[test]

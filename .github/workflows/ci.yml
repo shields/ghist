@@ -39,6 +39,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - run: rustup show active-toolchain
       - run: bun install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y zsh
       - run: make lint test
 
   coverage:
@@ -51,6 +52,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - run: sudo apt-get update && sudo apt-get install -y zsh
       - run:
           rustup toolchain install "$(make print-nightly)" --profile minimal
           --component llvm-tools-preview

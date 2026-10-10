@@ -14,6 +14,7 @@
 
 mod colors;
 mod common;
+mod completions;
 mod config;
 #[cfg(not(coverage_nightly))]
 mod differential;

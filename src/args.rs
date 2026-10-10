@@ -14,6 +14,7 @@
 
 use std::ffi::OsString;
 
+use crate::completions::Shell;
 use crate::error::Error;
 
 pub const HELP: &str = "\
@@ -25,6 +26,8 @@ Usage: ghist [-p|--patch] [--stat] [<revision>…] [--] [<path>…]
   --stat       Show diff statistics
   -h, --help   Show this help
   --version    Show the version
+  --completions <bash|zsh>
+               Print shell completions
   --           Treat all remaining arguments as paths
 
 Revisions include refs, a..b, a...b, and ^rev. Git resolves revisions and paths.
@@ -35,6 +38,7 @@ History is always shown in topological order with decorations.
 pub enum Action {
     Help,
     Version,
+    Completions(Shell),
     Log(LogArgs),
 }
 
@@ -57,6 +61,14 @@ pub fn parse(args: &[OsString]) -> Result<Action, Error> {
             }
             b"--help" => return Ok(Action::Help),
             b"--version" => return Ok(Action::Version),
+            b"--completions" => {
+                let shell = match args.next().map(|arg| arg.as_encoded_bytes()) {
+                    Some(b"bash") => Shell::Bash,
+                    Some(b"zsh") => Shell::Zsh,
+                    _ => return Err(Error::CompletionShell),
+                };
+                return Ok(Action::Completions(shell));
+            }
             b"--patch" => log.patch = true,
             b"--stat" => log.stat = true,
             [b'-', tail @ ..] => {
@@ -114,11 +126,41 @@ mod tests {
             assert_eq!(parse(&[help.into(), "--bad".into()]).unwrap(), Action::Help);
         }
         assert_eq!(parse(&["--version".into()]).unwrap(), Action::Version);
+        for (name, shell) in [("bash", Shell::Bash), ("zsh", Shell::Zsh)] {
+            assert_eq!(
+                parse(&["--completions".into(), name.into(), "--bad".into()]).unwrap(),
+                Action::Completions(shell)
+            );
+        }
+    }
+
+    #[test]
+    fn completions_require_a_supported_shell() {
+        for args in [vec!["--completions"], vec!["--completions", "fish"]] {
+            let error =
+                parse(&args.into_iter().map(OsString::from).collect::<Vec<_>>()).unwrap_err();
+            assert_eq!(error.exit(), crate::Exit::Code(2));
+            assert_eq!(
+                error.to_string(),
+                "--completions requires bash or zsh; see ghist --help"
+            );
+        }
     }
 
     #[test]
     fn separator_preserves_paths_and_empty_separator() {
-        for paths in [vec![], vec!["--help", "-p", "--patch", "--", "--version"]] {
+        for paths in [
+            vec![],
+            vec![
+                "--help",
+                "-p",
+                "--patch",
+                "--",
+                "--version",
+                "--completions",
+                "bash",
+            ],
+        ] {
             let mut args = vec!["HEAD".into(), "--".into()];
             args.extend(paths.iter().map(OsString::from));
             assert_eq!(

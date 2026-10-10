@@ -21,6 +21,7 @@ use crate::Exit;
 #[derive(Debug)]
 pub enum Error {
     Usage(OsString),
+    CompletionShell,
     Io(io::Error),
     ChildIo(io::Error),
     Protocol(&'static str),
@@ -74,7 +75,7 @@ impl Error {
 
     pub const fn exit(&self) -> Exit {
         match self {
-            Self::Usage(_) => Exit::Code(2),
+            Self::Usage(_) | Self::CompletionShell => Exit::Code(2),
             Self::Io(_) | Self::ChildIo(_) | Self::Protocol(_) => Exit::Code(1),
             Self::Config { .. } => Exit::Code(128),
             Self::Git { exit, .. } | Self::Pager(exit) => *exit,
@@ -86,6 +87,9 @@ impl Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::CompletionShell => {
+                write!(f, "--completions requires bash or zsh; see ghist --help")
+            }
             Self::Usage(arg) => write!(
                 f,
                 "unknown option: {}; see ghist --help",
@@ -115,6 +119,7 @@ impl std::error::Error for Error {
             Self::Io(error) | Self::ChildIo(error) => Some(error),
             Self::WithStderr { error, .. } => Some(error),
             Self::Usage(_)
+            | Self::CompletionShell
             | Self::Protocol(_)
             | Self::Config { .. }
             | Self::Git { .. }
@@ -155,6 +160,7 @@ mod tests {
     #[test]
     fn subprocess_and_configuration_errors() {
         for error in [
+            Error::CompletionShell,
             Error::Pager(Exit::Code(42)),
             Error::Protocol("framing"),
             Error::Config {

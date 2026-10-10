@@ -14,6 +14,7 @@
 
 mod args;
 mod color;
+mod completions;
 mod env;
 mod error;
 mod git;
@@ -86,6 +87,7 @@ fn execute(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Result<()
             out.write_all(concat!("ghist ", env!("CARGO_PKG_VERSION"), "\n").as_bytes())?;
         }
         args::Action::Log(args) => return log(ctx, &args, out, err),
+        args::Action::Completions(shell) => out.write_all(shell.script().as_bytes())?,
     }
     out.flush()?;
     Ok(())
@@ -233,15 +235,23 @@ mod tests {
 
     #[test]
     fn informational_output() {
-        for (arg, expected) in [
-            ("--help", args::HELP),
+        for (args, expected) in [
+            (vec!["--help"], args::HELP),
             (
-                "--version",
+                vec!["--version"],
                 concat!("ghist ", env!("CARGO_PKG_VERSION"), "\n"),
+            ),
+            (
+                vec!["--completions", "bash"],
+                completions::Shell::Bash.script(),
+            ),
+            (
+                vec!["--completions", "zsh"],
+                completions::Shell::Zsh.script(),
             ),
         ] {
             let ctx = Context {
-                args: vec![arg.into()],
+                args: args.into_iter().map(OsString::from).collect(),
                 ..Context::default()
             };
             let mut out = Vec::new();
@@ -267,15 +277,23 @@ mod tests {
 
     #[test]
     fn handles_each_partial_stdout_write() {
-        for (arg, size) in [
-            ("--help", args::HELP.len()),
+        for (args, size) in [
+            (vec!["--help"], args::HELP.len()),
             (
-                "--version",
+                vec!["--version"],
                 concat!("ghist ", env!("CARGO_PKG_VERSION"), "\n").len(),
+            ),
+            (
+                vec!["--completions", "bash"],
+                completions::Shell::Bash.script().len(),
+            ),
+            (
+                vec!["--completions", "zsh"],
+                completions::Shell::Zsh.script().len(),
             ),
         ] {
             let ctx = Context {
-                args: vec![arg.into()],
+                args: args.into_iter().map(OsString::from).collect(),
                 ..Context::default()
             };
             for left in 0..size {

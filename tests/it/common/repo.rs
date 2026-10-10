@@ -94,6 +94,43 @@ impl TestRepo {
         command
     }
 
+    pub fn complete(&self, shell: &str, line: &str) -> io::Result<Vec<String>> {
+        let generator = match shell {
+            "bash-system" => "bash",
+            "zsh-autoload" => "zsh",
+            _ => shell,
+        };
+        let script = self.ghist_command(&["--completions", generator]).output()?;
+        if !script.status.success() || !script.stderr.is_empty() {
+            return Err(io::Error::other(format!(
+                "completion generation failed: {script:?}"
+            )));
+        }
+        let script_path = self.cwd.join(if shell == "zsh-autoload" {
+            "_ghist".to_owned()
+        } else {
+            format!(".completion-{shell}")
+        });
+        fs::write(&script_path, script.stdout)?;
+        let result_path = self.cwd.join(".completion-result");
+        let output = Command::new("zsh")
+            .args(["-f", "-c", include_str!("completion.zsh"), "zsh", shell])
+            .arg(script_path)
+            .arg(line)
+            .arg(result_path)
+            .env_clear()
+            .envs(self.env.iter().cloned())
+            .env("TERM", "xterm")
+            .current_dir(&self.cwd)
+            .stdin(Stdio::null())
+            .output()?;
+        if !output.status.success() || !output.stderr.is_empty() {
+            return Err(io::Error::other(format!("completion failed: {output:?}")));
+        }
+        let args = String::from_utf8(output.stdout).map_err(io::Error::other)?;
+        Ok(args.split_terminator('\0').map(str::to_owned).collect())
+    }
+
     pub fn script(&self, name: &str, body: &[u8]) -> io::Result<PathBuf> {
         let path = self.cwd.join(name);
         let mut bytes = b"#!/bin/sh\n".to_vec();
