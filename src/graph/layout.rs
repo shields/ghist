@@ -220,12 +220,8 @@ impl<Id: Clone + Eq> Graph<Id> {
             .get(2 * node)
             .map_or(0, |cell| cell.arms & (LEFT | RIGHT));
         let &(_, tapped, _) = targets.first().expect("a fan-out has a first parent");
-        set(
-            &mut row,
-            node,
-            UP | horizontal | if continuation.is_some() { DOWN } else { 0 },
-            continuation.map_or(tapped, |lane| lane.color),
-        );
+        let (down, color) = continuation.map_or((0, tapped), |lane| (DOWN, lane.color));
+        set(&mut row, node, UP | horizontal | down, color);
         self.shape.width = self.shape.width.max(self.lanes.len());
         self.shape.rows.push(row);
     }
@@ -344,6 +340,18 @@ mod tests {
             rows(graph.next(&7, &[8, 1])),
             ["│ ● │", "├─┤ │", "│ ├─╯", "│ │"]
         );
+    }
+
+    #[test]
+    fn tap_corners_take_the_first_parent_color() {
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
+        graph.next(&10, &[5, 6, 7, 8, 9]);
+        let shape = graph.next(&8, &[6, 9]);
+        assert_eq!(rows(shape), ["│ │ │ ● │", "│ ├─│─┴─┤", "│ │ │   │"]);
+        assert_eq!(shape.rows[1][6].color, 1);
+        let shape = graph.next(&9, &[7, 5]);
+        assert_eq!(rows(shape), ["│ │ │   ●", "├─│─┼───╯", "│ │ │"]);
+        assert_eq!(shape.rows[1][8].color, 2);
     }
 
     #[test]
