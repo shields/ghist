@@ -219,11 +219,12 @@ impl<Id: Clone + Eq> Graph<Id> {
         let horizontal = row
             .get(2 * node)
             .map_or(0, |cell| cell.arms & (LEFT | RIGHT));
+        let &(_, tapped, _) = targets.first().expect("a fan-out has a first parent");
         set(
             &mut row,
             node,
             UP | horizontal | if continuation.is_some() { DOWN } else { 0 },
-            continuation.map_or(0, |lane| lane.color),
+            continuation.map_or(tapped, |lane| lane.color),
         );
         self.shape.width = self.shape.width.max(self.lanes.len());
         self.shape.rows.push(row);
@@ -309,7 +310,9 @@ mod tests {
             rows(graph.next(&7, &[6, 5, 4])),
             ["│ ●   │", "├─┼───┤", "│ │   │"]
         );
-        assert_eq!(rows(graph.next(&5, &[6])), ["│ │   ●", "├─│───╯", "│ │"]);
+        let shape = graph.next(&5, &[6]);
+        assert_eq!(rows(shape), ["│ │   ●", "├─│───╯", "│ │"]);
+        assert_eq!(shape.rows[1][6].color, 2);
         assert_eq!(rows(graph.next(&4, &[6, 3])), ["│ ●", "├─┤", "│ │"]);
         assert_eq!(rows(graph.next(&6, &[])), ["● │", "  │"]);
         assert_eq!(rows(graph.next(&3, &[])), ["  ●", ""]);

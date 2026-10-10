@@ -155,6 +155,7 @@ TAB, which have separate message/framing cases.
 | Merge fan-out, existing parents, pulls, and vertical crossings                   | T      | Pure layout goldens                                  |
 | Only a merge opening a lane outside column zero taps a first parent on its right | T      | Pure layout goldens                                  |
 | Duplicate parents and lane color counter wrap                                    | T      | Pure layout goldens                                  |
+| Tap corners use the first parent’s lane color                                    | T      | Pure layout goldens                                  |
 | Aligned graph prefixes on commit headers and messages                            | T      | Renderer mockup golden                               |
 | Trimmed blank rows, prior-commit separators, and leftover rows                   | T      | Prefix and renderer goldens                          |
 | Prefix output preserves every partial-write error                                | T      | Renderer failure injection                           |

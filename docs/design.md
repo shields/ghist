@@ -118,7 +118,8 @@ For each commit:
 
 Cells carry directional arms and a color. A `│` between horizontal segments is a
 crossing with the vertical on top; `┼` is a junction. Horizontal spans use the
-far attachment’s color; pulls and compaction use the moving lane’s color.
+far attachment’s color, and the corner of a lane that ends in a tap uses the
+first parent’s lane color; pulls and compaction use the moving lane’s color.
 Adjacent equal colors share an SGR span, reset before the text.
 
 The graph sees Git’s rewritten `%P` minus the hidden boundary set. Header
