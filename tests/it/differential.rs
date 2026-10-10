@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn long_generated_histories_match_fuller() {
-        let strategy = prop::collection::vec(prop::collection::vec(1..=24_usize, 0..=3), 20..61);
+        let strategy = prop::collection::vec(prop::collection::vec(1..=24_usize, 0..=3), 25..77);
         seeded_cases(
             "long_generated_histories_match_fuller",
             &strategy,

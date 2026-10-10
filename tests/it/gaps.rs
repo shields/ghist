@@ -126,7 +126,7 @@ mod tests {
             message: b"chain 0\n".to_vec(),
             ..Commit::default()
         });
-        for index in 1..20 {
+        for index in 1..24 {
             chain = history.push(Commit {
                 parents: vec![chain],
                 message: format!("chain {index}\n").into_bytes(),
@@ -154,10 +154,10 @@ mod tests {
         });
         repo.import(&history).unwrap();
         let out = String::from_utf8(oracle::fuller(&repo, &[]).unwrap()).unwrap();
-        let sixteenth = repo.git(["rev-parse", "HEAD^2^2~15"]).unwrap();
-        let sixteenth = std::str::from_utf8(sixteenth.trim_ascii_end()).unwrap();
+        let twentieth = repo.git(["rev-parse", "HEAD^2^2~19"]).unwrap();
+        let twentieth = std::str::from_utf8(twentieth.trim_ascii_end()).unwrap();
         assert!(
-            out.contains(&format!("│   ●  sha1 {sixteenth}\n│ ╭─╯  Author:")),
+            out.contains(&format!("│   ●  sha1 {twentieth}\n│ ╭─╯  Author:")),
             "{out}"
         );
     }

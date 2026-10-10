@@ -97,7 +97,8 @@ message and preserve Git’s blank line between the summary and patch.
 ## Graph layout
 
 `Graph<Id>` holds optional lanes, each with a target ID and palette index. A
-missing lane is reusable space. The palette counter starts at `N − 1`.
+missing lane is a hole: reusable space that records the commit at which it
+opened. The palette counter starts at `N − 1`.
 
 For each commit:
 
@@ -112,7 +113,7 @@ For each commit:
 4. Emit node, fan-out, pull, and optional compaction rows, in that order.
    Fan-out before pull distinguishes simultaneous attachments.
 5. Move at most one lane: the rightmost occupied lane into the first earlier
-   hole that has been empty for 16 commits. A new lane usually reuses a hole
+   hole that has been empty for 20 commits. A new lane usually reuses a hole
    sooner, so waiting saves the jog, at the cost of width; the jog can follow
    any commit. Trim trailing holes.
 

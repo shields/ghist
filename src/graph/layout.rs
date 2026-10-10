@@ -19,7 +19,7 @@ use super::{
     cell::{Cell, DOWN, LEFT, RIGHT, UP},
 };
 
-const HOLE_AGE: usize = 16;
+const HOLE_AGE: usize = 20;
 
 #[derive(Clone)]
 struct Lane<Id> {
@@ -258,7 +258,7 @@ fn connect(row: &mut [Cell], from: usize, to: usize, color: usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::{NonZeroUsize, Shape};
+    use super::{HOLE_AGE, NonZeroUsize, Shape};
     use crate::graph::Graph;
 
     fn rows(shape: &Shape) -> Vec<String> {
@@ -355,17 +355,17 @@ mod tests {
     }
 
     #[test]
-    fn compaction_waits_sixteen_commits_and_preserves_the_moving_color() {
+    fn compaction_waits_twenty_commits_and_preserves_the_moving_color() {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&10, &[20, 8, 7, 6]);
         let shape = graph.next(&8, &[]);
         assert_eq!(rows(shape), ["│ ● │ │", "│   │ │"]);
         let shape = graph.next(&7, &[5, 20]);
         assert_eq!(rows(shape), ["│   ● │", "├───┤ │", "│   │ │"]);
-        for id in 20..34 {
+        for id in 20..38 {
             assert_eq!(rows(graph.next(&id, &[id + 1])), ["●   │ │", "│   │ │"]);
         }
-        let shape = graph.next(&34, &[35]);
+        let shape = graph.next(&38, &[39]);
         assert_eq!(rows(shape), ["●   │ │", "│ ╭─│─╯", "│ │ │"]);
         assert_eq!(shape.fixed_rows(), 2);
         assert_eq!(shape.text_column(), 9);
@@ -380,11 +380,11 @@ mod tests {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&100, &[20, 60, 70, 80]);
         graph.next(&60, &[]);
-        for id in 20..35 {
+        for id in 20..19 + HOLE_AGE {
             graph.next(&id, &[id + 1]);
         }
         assert_eq!(
-            rows(graph.next(&70, &[80, 35])),
+            rows(graph.next(&70, &[80, 19 + HOLE_AGE])),
             ["│   ● │", "├───┤ │", "│   ├─╯", "│ ╭─╯", "│ │"]
         );
     }
@@ -394,11 +394,11 @@ mod tests {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&100, &[10, 2, 3, 4, 5]);
         graph.next(&4, &[]);
-        for id in 10..25 {
+        for id in 10..9 + HOLE_AGE {
             graph.next(&id, &[id + 1]);
         }
         assert_eq!(
-            rows(graph.next(&25, &[2])),
+            rows(graph.next(&(9 + HOLE_AGE), &[2])),
             ["● │ │   │", "├─╯ │   │", "│   │ ╭─╯", "│   │ │"]
         );
     }
