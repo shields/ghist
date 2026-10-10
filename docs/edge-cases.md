@@ -32,7 +32,7 @@ colon-separated list of repositories to compare their full histories too.
 | Dimension                                                          | Status | Evidence                                            |
 | ------------------------------------------------------------------ | ------ | --------------------------------------------------- |
 | Empty arguments, revisions, ranges, exclusions, and implicit paths | T      | `args::tests` checks byte-preserving pass-through   |
-| `-p`, `--stat`, repetition, and bundled `-ph`                      | T      | `args::tests`                                       |
+| `-p`/`--patch`, `--stat`, repetition, and bundled `-ph`            | T      | `args::tests`                                       |
 | Help and version terminate argument parsing                        | T      | `args::tests`, `tests::informational_output`        |
 | Explicit `--`, including no paths and option-like paths            | T      | `args::tests`                                       |
 | Non-UTF-8 operands and unsupported options                         | T      | `args::tests`                                       |

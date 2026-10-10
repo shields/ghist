@@ -19,9 +19,9 @@ use crate::error::Error;
 pub const HELP: &str = "\
 ghist — an opinionated git log replacement
 
-Usage: ghist [-p] [--stat] [<revision>…] [--] [<path>…]
+Usage: ghist [-p|--patch] [--stat] [<revision>…] [--] [<path>…]
 
-  -p           Show patches
+  -p, --patch  Show patches
   --stat       Show diff statistics
   -h, --help   Show this help
   --version    Show the version
@@ -57,6 +57,7 @@ pub fn parse(args: &[OsString]) -> Result<Action, Error> {
             }
             b"--help" => return Ok(Action::Help),
             b"--version" => return Ok(Action::Version),
+            b"--patch" => log.patch = true,
             b"--stat" => log.stat = true,
             [b'-', tail @ ..] => {
                 if tail.is_empty() {
@@ -89,18 +90,22 @@ mod tests {
 
     #[test]
     fn flags_and_git_operands() {
-        let args = ["-pp", "main", "--stat", "a..b", "a...b", "^old", "path"];
-        assert_eq!(
-            parse(&args.map(OsString::from)).unwrap(),
-            Action::Log(LogArgs {
-                patch: true,
-                stat: true,
-                before: ["main", "a..b", "a...b", "^old", "path"]
-                    .map(OsString::from)
-                    .to_vec(),
-                after: None,
-            })
-        );
+        for patch in ["-p", "-pp", "--patch"] {
+            let args = [
+                patch, "main", "--stat", patch, "a..b", "a...b", "^old", "path",
+            ];
+            assert_eq!(
+                parse(&args.map(OsString::from)).unwrap(),
+                Action::Log(LogArgs {
+                    patch: true,
+                    stat: true,
+                    before: ["main", "a..b", "a...b", "^old", "path"]
+                        .map(OsString::from)
+                        .to_vec(),
+                    after: None,
+                })
+            );
+        }
     }
 
     #[test]
@@ -113,7 +118,7 @@ mod tests {
 
     #[test]
     fn separator_preserves_paths_and_empty_separator() {
-        for paths in [vec![], vec!["--help", "-p", "--", "--version"]] {
+        for paths in [vec![], vec!["--help", "-p", "--patch", "--", "--version"]] {
             let mut args = vec!["HEAD".into(), "--".into()];
             args.extend(paths.iter().map(OsString::from));
             assert_eq!(
@@ -134,6 +139,7 @@ mod tests {
             "-q",
             "-pq",
             "--all",
+            "--patch=true",
             "--stat=80",
             "--pretty=raw",
             "-n1",

@@ -21,16 +21,16 @@ An opinionated `git log` replacement, with a Unicode graph and Git’s own color
 ## Behavior
 
 ```text
-ghist [-p] [--stat] [<rev>|<a>..<b>|<a>...<b>|^<rev>…] [--] [<path>…]
+ghist [-p|--patch] [--stat] [<rev>|<a>..<b>|<a>...<b>|^<rev>…] [--] [<path>…]
 ```
 
 Git handles revision syntax, topological order, path filtering, mailmap,
 encodings, and diffs. SHA-1 and SHA-256 repositories, shallow clones, and
 replacement objects work as they do in `git log`.
 
-Use `-p` for patches, `--stat` for a summary, or both. Merges show neither. Root
-commits show changes against the empty tree unless `log.showRoot` is false.
-Git’s diff algorithm, rename detection, and diff colors apply.
+Use `-p` or `--patch` for patches, `--stat` for a summary, or both. Merges show
+neither. Root commits show changes against the empty tree unless `log.showRoot`
+is false. Git’s diff algorithm, rename detection, and diff colors apply.
 
 The other flags are `-h`/`--help` and `--version`. There are no display flags.
 
