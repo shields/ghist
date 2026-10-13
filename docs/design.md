@@ -96,9 +96,14 @@ message and preserve Git’s blank line between the summary and patch.
 
 ## Graph layout
 
-`Graph<Id>` holds optional lanes, each with a target ID and palette index. A
-missing lane is a hole: reusable space that records the commit at which it
-opened. The palette counter starts at `N − 1`.
+`Graph<Id>` holds a column per lane or hole. A lane has a target ID, a palette
+index, a family, and an origin: the family that opened it, if any. A lane also
+has an opening record: the last two commits at which it opened another lane. A
+tip starts a family. A new first parent’s lane keeps the node lane’s family,
+origin, and opening record; a lane for any other new parent starts a family
+whose origin is the family of the lane that carries the first parent. A hole
+records the commit at which it opened and is reusable space. The palette counter
+starts at `N − 1`.
 
 For each commit:
 
@@ -108,7 +113,19 @@ For each commit:
    retain their colors; new targets take the current counter.
 3. Continue the first parent in the node column. Tap an existing first parent to
    the left. Pull one from the right, but tap it instead if the node is not in
-   column zero and another parent is new. Place other new parents in the nearest
+   column zero and another parent is new. A commit with one parent whose lane
+   and the parent’s lane were opened by the same family, neither in column zero,
+   keeps the outer column of the two instead when that family is in a merge
+   train: the node lane’s family started after the parent lane’s, the opener’s
+   lane lies left of both, the inner column would be the only hole left of the
+   outer one, and the opener opened lanes at two commits within the last five.
+   It pulls from the left or taps to the right, so the opener’s next branch
+   starts in the inner column, inside the shared parent’s lane. A freed column
+   that no branch takes costs a jog when compaction fills it, so a long-lived
+   branch rejoining lanes opened after it, or a family whose branches have
+   stopped, keeps the inner column. The surviving lane takes the node lane’s
+   family, origin, and opening record when the node is in column zero or the
+   node lane’s family opened it. Place other new parents in the nearest
    available lane at or to the right of the node.
 4. Emit node, fan-out, pull, and optional compaction rows, in that order.
    Fan-out before pull distinguishes simultaneous attachments.

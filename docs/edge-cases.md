@@ -171,7 +171,19 @@ TAB, which have separate message/framing cases.
 | -------------------------------------------------------------------------------- | ------ | ---------------------------------------------------- |
 | Linear ancestry, multiple roots, and reused lane holes                           | T      | Pure layout goldens                                  |
 | Merge fan-out, existing parents, pulls, and vertical crossings                   | T      | Pure layout goldens                                  |
-| Only a merge opening a lane outside column zero taps a first parent on its right | T      | Pure layout goldens                                  |
+| Merges tap first parents on the right only if opening a lane outside column zero | T      | Pure layout goldens                                  |
+| Single-parent joins in a merge train keep the outer column                       | T      | Pure layout goldens                                  |
+| Older siblings rejoining lanes opened after them keep the inner column           | T      | Pure layout goldens                                  |
+| Siblings straddling their opener keep the inner column                           | T      | Pure layout goldens                                  |
+| Siblings beside another hole keep the inner column                               | T      | Pure layout goldens                                  |
+| Siblings keep the outer column only during their opener’s burst of branches      | T      | Pure layout goldens                                  |
+| Merges between sibling lanes keep the inner column                               | T      | Pure layout goldens                                  |
+| Lanes joining column zero or their opener take its family                        | T      | Pure layout goldens                                  |
+| Other pulled lanes keep their own family                                         | T      | Pure layout goldens                                  |
+| Merge taps open lanes from the tapped lane’s family                              | T      | Pure layout goldens                                  |
+| Separate tips are not siblings                                                   | T      | Pure layout goldens                                  |
+| Lanes opened by different families are not siblings                              | T      | Pure layout goldens                                  |
+| Siblings compacted into column zero are tapped                                   | T      | Pure layout goldens                                  |
 | Duplicate parents and lane color counter wrap                                    | T      | Pure layout goldens                                  |
 | Tap corners use the first parent’s lane color                                    | T      | Pure layout goldens                                  |
 | Aligned graph prefixes on commit headers and messages                            | T      | Renderer mockup golden                               |
