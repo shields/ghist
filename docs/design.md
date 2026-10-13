@@ -134,6 +134,9 @@ For each commit:
    sooner, so waiting saves the jog, at the cost of width; the jog can follow
    any commit. Trim trailing holes.
 
+[Graph layout](graph-layout.md) gives the model, theory, prior art, and
+measurements behind these rules.
+
 Cells carry directional arms and a color. A `│` between horizontal segments is a
 crossing with the vertical on top; `┼` is a junction. Horizontal spans use the
 far attachment’s color, and the corner of a lane that ends in a tap uses the
