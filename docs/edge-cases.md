@@ -211,6 +211,7 @@ TAB, which have separate message/framing cases.
 | Nonzero and missing pagers preserve their exit status                                | T      | `tests/it/paging.rs`                                                   |
 | Closed stdout and early successful pager exit are quiet successes                    | T      | `tests/it/pipes.rs`, real binary pipes                                 |
 | Nonzero pager exit outranks a broken output pipe                                     | T      | `early_pager_exit_is_quiet_but_preserves_nonzero_status`               |
+| A nonzero pager exit after a broken output pipe keeps Git’s warnings                 | T      | `early_pager_failure_keeps_git_warnings`                               |
 | Closed output stops an unbounded Git stream                                          | T      | `a_closed_output_stops_an_unbounded_git_stream`                        |
 | INT, QUIT, TERM and HUP interrupt Git reads and waits, reap Git, and re-raise        | T      | `tests/it/signals.rs`, real binary statuses                            |
 | Signal cleanup closes pager stdin and waits for its exit                             | T      | Pager EOF and release handshake                                        |
@@ -229,6 +230,8 @@ TAB, which have separate message/framing cases.
 | Binary sizes are queried lazily; missing and unchanged sides never trigger lookups                     | T      | Fake-Git lookup capture                                                                                           |
 | Mode-only and deletion-only stats preserve zero counts and summary grammar                             | T      | Git stat comparisons                                                                                              |
 | Malformed size responses, broken cat-file input, and Git failure precedence remain errors              | T      | `size_failures_preserve_exit_status_diagnostics_and_walk_error_precedence`                                        |
+| A binary-size failure keeps the walk’s Git warnings                                                    | T      | `size_failures_keep_walk_diagnostics`                                                                             |
+| A binary-size failure still reports a walk error that no size lookup raised                            | T      | `size_failures_keep_walk_diagnostics`                                                                             |
 | Output failure stops a pending binary-size lookup                                                      | T      | `output_failure_stops_a_pending_size_lookup`                                                                      |
 | A failed history walk retains its status after binary-size input closes                                | T      | Deterministic closed-input failures in `size_failures_preserve_exit_status_diagnostics_and_walk_error_precedence` |
 | Invalid width configuration and numeric overflow fail loudly                                           | T      | Parser/layout units and width integration checks                                                                  |

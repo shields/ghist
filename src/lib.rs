@@ -112,6 +112,7 @@ fn log(
         };
         let stat_options = render::stat::Options::read(ctx, &config)?;
         let mut sizes = git::catfile::Sizes::new(ctx);
+        let mut lookup_failed = false;
         let (hidden, warnings) = git::revs::hidden(ctx, args)?;
         stderr.extend(warnings);
         let output = RefCell::new(out::Output::new(ctx, out, pager));
@@ -128,8 +129,11 @@ fn log(
                 renderer.commit(&record)?;
                 if args.stat {
                     let mut flush_sizes = || output.borrow_mut().flush();
-                    let files =
-                        git::stat::read(reader, &mut |hash| sizes.get(hash, &mut flush_sizes))?;
+                    let files = git::stat::read(reader, &mut |hash| {
+                        let size = sizes.get(hash, &mut flush_sizes);
+                        lookup_failed |= size.is_err();
+                        size
+                    })?;
                     renderer.stat(&files, stat_options, args.patch)?;
                 }
                 if args.patch {
@@ -144,25 +148,37 @@ fn log(
         );
         let size_result = sizes.finish(output.borrow().has_failed());
         let finished = output.borrow_mut().finish();
-        if let Err(error @ error::Error::Git { .. }) = walked {
-            match size_result {
-                Ok(warnings) => stderr.extend(warnings),
-                Err(other) => other.report(&mut stderr)?,
+        let (warnings, walked) = match walked {
+            Ok(warnings) => (warnings, Ok(())),
+            Err(error::Error::WithStderr {
+                error,
+                stderr: warnings,
+            }) => (warnings, Err(*error)),
+            Err(error) => (Vec::new(), Err(error)),
+        };
+        match size_result {
+            Ok(size_warnings) => stderr.extend(size_warnings),
+            Err(error) if matches!(walked, Err(error::Error::Git { .. })) => {
+                error.report(&mut stderr)?;
             }
-            return Err(error);
-        }
-        stderr.extend(size_result?);
-        match walked {
-            Ok(warnings) => stderr.extend(warnings),
             Err(error) => {
-                if error.is_broken_pipe() {
-                    finished?;
+                stderr.extend(warnings);
+                if let Err(other) = walked
+                    && !lookup_failed
+                {
+                    other.report(&mut stderr)?;
                 }
                 return Err(error);
             }
         }
-        finished?;
-        Ok(())
+        stderr.extend(warnings);
+        if let Err(error) = walked {
+            if error.is_broken_pipe() {
+                finished?;
+            }
+            return Err(error);
+        }
+        finished
     })();
     match result {
         Ok(()) => {

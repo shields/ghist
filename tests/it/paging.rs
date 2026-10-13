@@ -163,17 +163,12 @@ mod tests {
         }
     }
 
-    fn scripted_context(repo: &TestRepo, command: &str, wait: bool) -> Context {
+    fn scripted_context(repo: &TestRepo, command: &str, tail: &[u8]) -> Context {
         let mut script = br#"if test "$2" = config; then printf 'config warning\n' >&2; exit 0; fi
 printf '\036\037ghist\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\000aaaa\000\000\000A\000a\000date\000A\000a\000date\000\000message\000\n'
 printf 'log warning\n' >&2
 "#.to_vec();
-        if wait {
-            script.extend_from_slice(
-                br#"while test ! -e "$SEEN"; do /bin/sleep 0.01; done
-"#,
-            );
-        }
+        script.extend_from_slice(tail);
         let fake = repo.fake_git(&script).unwrap();
         let path = fake
             .env
@@ -213,11 +208,7 @@ printf 'log warning\n' >&2
     #[test]
     fn defers_git_stderr_until_the_pager_finishes() {
         let repo = repo();
-        let ctx = scripted_context(
-            &repo,
-            "/bin/cat > \"$OUT\"; /usr/bin/touch \"$DONE\"",
-            false,
-        );
+        let ctx = scripted_context(&repo, "/bin/cat > \"$OUT\"; /usr/bin/touch \"$DONE\"", b"");
         let mut err = AfterPager {
             done: repo.cwd.join("pager.done"),
             bytes: vec![],
@@ -232,7 +223,8 @@ printf 'log warning\n' >&2
         let ctx = scripted_context(
             &repo,
             "IFS= read -r line; printf '%s\\n' \"$line\" > \"$SEEN\"; /bin/cat > \"$OUT\"",
-            true,
+            br#"while test ! -e "$SEEN"; do /bin/sleep 0.01; done
+"#,
         );
         let (send, receive) = mpsc::channel();
         let worker = std::thread::spawn(move || {
@@ -255,6 +247,26 @@ printf 'log warning\n' >&2
                 .windows(5)
                 .any(|part| part == b"sha1 ")
         );
+    }
+
+    #[test]
+    fn early_pager_failure_keeps_git_warnings() {
+        let repo = repo();
+        let ctx = scripted_context(
+            &repo,
+            "exit 7",
+            br"i=0
+while test $i -lt 10000; do
+    printf '\036\037ghist\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\000aaaa\000\000\000A\000a\000date\000A\000a\000date\000\000message\000\n'
+    i=$((i + 1))
+done
+",
+        );
+        for _ in 0..4 {
+            let mut err = Vec::new();
+            assert_eq!(ghist::run(&ctx, &mut Vec::new(), &mut err), Exit::Code(7));
+            assert_eq!(err, b"config warning\nlog warning\n");
+        }
     }
 
     #[test]

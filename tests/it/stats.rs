@@ -180,6 +180,7 @@ mod tests {
 config) exit 0 ;;
 log)
     /bin/cat "$STREAM"
+    if test -n "${LOG_WARNING-}"; then printf '%s\n' "$LOG_WARNING" >&2; fi
     if test "${LOG_STATUS-0}" != 0; then printf 'walk failed\n' >&2; fi
     exit "${LOG_STATUS-0}"
     ;;
@@ -197,6 +198,7 @@ cat-file)
         if test "$MODE" = malformed; then printf 'bad\n'; else printf '12\n'; fi
     done
     if test -n "${WARNING-}"; then printf '%s\n' "$WARNING" >&2; fi
+    exit "${SIZE_STATUS-0}"
     ;;
 esac
 "#,
@@ -317,6 +319,31 @@ esac
             let (exit, err) = bounded_run(&ctx, &format!("{mode} with a failing walk"));
             assert_eq!(exit, ghist::Exit::Code(6), "{mode}: {err:?}");
             assert_eq!(err, format!("{extra}walk failed\n").as_bytes());
+        }
+    }
+
+    #[test]
+    fn size_failures_keep_walk_diagnostics() {
+        let small = b":100644 100644 1234 abcd M\tpath\n-\t-\tpath\n".as_slice();
+        let framing = [small, b"\x1ebogus\n"].concat();
+        for (mode, diff, status, walk_error) in [
+            ("failed", small, 7, ""),
+            ("normal", small, 5, ""),
+            (
+                "normal",
+                framing.as_slice(),
+                5,
+                "ghist: invalid git output: invalid diff framing\n",
+            ),
+        ] {
+            let (_repo, mut ctx) = fake_sizes(diff, mode);
+            ctx.env.push(("LOG_WARNING".into(), "walk warning".into()));
+            ctx.env.push(("SIZE_STATUS".into(), "5".into()));
+            ctx.env.push(("WARNING".into(), "size failed".into()));
+            let (exit, err) = bounded_run(&ctx, mode);
+            assert_eq!(exit, ghist::Exit::Code(status), "{mode}: {err:?}");
+            let expected = format!("walk warning\n{walk_error}size failed\n");
+            assert_eq!(err, expected.as_bytes(), "{mode}");
         }
     }
 
