@@ -106,25 +106,22 @@ impl<Id: Clone + Eq> Graph<Id> {
             pad: Vec::new(),
             width: self.lanes.len(),
         };
-        let mut parents = Vec::new();
-        for parent in shown {
-            if !parents.contains(&parent) {
-                parents.push(parent);
-            }
-        }
-        let merge = parents.len() > 1;
         let mut assignments = Vec::new();
-        for parent in parents {
-            if existing.is_none() || merge {
+        for parent in shown {
+            if existing.is_none() || shown.len() > 1 {
                 self.counter = (self.counter + 1) % self.ncolors.get();
             }
+            if assignments
+                .iter()
+                .any(|(assigned, _, _)| assigned == parent)
+            {
+                continue;
+            }
             let position = self.find(parent);
-            let color = position
-                .and_then(|index| self.lanes.get(index))
-                .and_then(|lane| lane.as_ref().ok())
-                .map_or(self.counter, |lane| lane.color);
+            let color = position.map_or(self.counter, |index| occupied(&self.lanes, index).color);
             assignments.push((parent.clone(), position, color));
         }
+        let merge = assignments.len() > 1;
         let lane = self.vacate(node);
         let first = assignments
             .first()
@@ -763,21 +760,31 @@ mod tests {
 
     #[test]
     fn duplicate_parents_and_counter_wrap() {
-        let mut graph = Graph::new(NonZeroUsize::new(2).unwrap());
+        let mut graph = Graph::new(NonZeroUsize::new(4).unwrap());
         let shape = graph.next(&5, &[4, 3, 3]);
         assert_eq!(rows(shape), ["●", "├─╮", "│ │"]);
         assert_eq!(shape.pad[0].color, 0);
         assert_eq!(shape.pad[2].color, 1);
-        let shape = graph.next(&4, &[2]);
-        assert_eq!(shape.pad[0].color, 1);
+        let shape = graph.next(&4, &[2, 2]);
+        assert_eq!(rows(shape), ["● │", "│ │"]);
+        assert_eq!(shape.pad[0].color, 3);
         let shape = graph.next(&3, &[2, 1]);
         assert_eq!(rows(shape), ["│ ●", "├─┤", "│ │"]);
-        assert_eq!(shape.pad[0].color, 1);
-        assert_eq!(shape.pad[2].color, 1);
+        assert_eq!(shape.pad[0].color, 3);
+        assert_eq!(shape.pad[2].color, 2);
         let shape = graph.next(&1, &[2]);
         assert_eq!(rows(shape), ["│ ●", "├─╯", "│"]);
-        assert_eq!(shape.pad[0].color, 1);
+        assert_eq!(shape.pad[0].color, 3);
         let shape = graph.next(&2, &[]);
         assert_eq!(rows(shape), ["●", ""]);
+        let shape = graph.next(&8, &[7, 7, 6]);
+        assert_eq!(rows(shape), ["●", "├─╮", "│ │"]);
+        assert_eq!(shape.pad[0].color, 3);
+        assert_eq!(shape.pad[2].color, 1);
+        let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
+        graph.next(&9, &[7, 8]);
+        graph.next(&8, &[1]);
+        graph.next(&7, &[5, 6]);
+        assert_eq!(rows(graph.next(&6, &[1, 1])), ["│ │ ●", "│ ╰─┤", "│   │"]);
     }
 }

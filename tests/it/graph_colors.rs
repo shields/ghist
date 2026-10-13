@@ -88,6 +88,12 @@ mod tests {
                     vec![]
                 } else if index % 4 == 0 {
                     vec![index, index / 2, 1]
+                } else if index % 6 == 3 {
+                    vec![index, index]
+                } else if index % 8 == 6 {
+                    vec![index, index / 3, index]
+                } else if index % 8 == 7 {
+                    vec![index, index, index / 2]
                 } else {
                     vec![index]
                 };

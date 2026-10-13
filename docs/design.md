@@ -108,9 +108,10 @@ starts at `N − 1`.
 For each commit:
 
 1. Use its existing target lane, or the first hole for a new tip.
-2. Deduplicate shown parents. For a merge or new tip, advance the counter once
-   per parent, including parents already assigned a lane. Existing parents
-   retain their colors; new targets take the current counter.
+2. For a new tip or a commit that lists more than one shown parent, advance the
+   counter once per listing, including duplicates and parents already assigned a
+   lane, as Git does. Existing parents retain their colors; a new target takes
+   the counter at its first listing. Lay out the deduplicated parents.
 3. Continue the first parent in the node column. Tap an existing first parent to
    the left. Pull one from the right, but tap it instead if the node is not in
    column zero and another parent is new. A commit with one parent whose lane

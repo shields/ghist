@@ -184,7 +184,7 @@ TAB, which have separate message/framing cases.
 | Separate tips are not siblings                                                   | T      | Pure layout goldens                                  |
 | Lanes opened by different families are not siblings                              | T      | Pure layout goldens                                  |
 | Siblings compacted into column zero are tapped                                   | T      | Pure layout goldens                                  |
-| Duplicate parents and lane color counter wrap                                    | T      | Pure layout goldens                                  |
+| Duplicate parents are laid out once but advance the color counter, which wraps   | T      | Pure layout goldens and incoming-edge colors         |
 | Tap corners use the first parent’s lane color                                    | T      | Pure layout goldens                                  |
 | Aligned graph prefixes on commit headers and messages                            | T      | Renderer mockup golden                               |
 | Trimmed blank rows, prior-commit separators, and leftover rows                   | T      | Prefix and renderer goldens                          |
