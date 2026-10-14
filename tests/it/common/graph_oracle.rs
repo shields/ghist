@@ -63,6 +63,19 @@ pub fn parse(bytes: &[u8]) -> Result<Edges, String> {
         }
         active = row(&prefix, node_column, commit, &active, &mut edges)?;
     }
+    if !active.is_empty() {
+        let lanes: Vec<_> = active
+            .iter()
+            .map(|(column, origins)| {
+                let origins: Vec<_> = origins
+                    .iter()
+                    .map(|hash| String::from_utf8_lossy(hash))
+                    .collect();
+                format!("{column}: {origins:?}")
+            })
+            .collect();
+        return Err(format!("lanes never reach a commit: {lanes:?}"));
+    }
     Ok(edges)
 }
 

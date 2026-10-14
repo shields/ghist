@@ -13,12 +13,14 @@
 // limitations under the License.
 
 use std::collections::HashSet;
+use std::ffi::{OsStr, OsString};
 use std::io::{BufRead, Read};
 use std::os::unix::ffi::OsStrExt;
 use std::process::Command;
+use std::slice;
 
 use super::{Process, command};
-use crate::{Context, args::LogArgs, error::Error, oid::Oid};
+use crate::{Context, Exit, args::LogArgs, error::Error, oid::Oid};
 
 pub fn hidden(ctx: &Context, args: &LogArgs) -> Result<HashSet<Oid>, Error> {
     if !args.before.iter().any(|arg| {
@@ -27,18 +29,55 @@ pub fn hidden(ctx: &Context, args: &LogArgs) -> Result<HashSet<Oid>, Error> {
     }) {
         return Ok(HashSet::new());
     }
-    let mut process = Process::spawn(ctx, &mut invocation(ctx, args, false))?;
-    let mut bytes = Vec::new();
-    let read = process.stdout.read_to_end(&mut bytes);
-    let stderr = process.finish()?;
-    let negative = read
-        .map_err(Error::from)
-        .and_then(|_| has_negative(&bytes))
-        .map_err(|error| error.with_stderr(stderr))?;
-    if negative {
+    if excludes(ctx, args)? {
         boundaries(ctx, args)
     } else {
         Ok(HashSet::new())
+    }
+}
+
+fn excludes(ctx: &Context, args: &LogArgs) -> Result<bool, Error> {
+    if let Some(paths) = &args.after {
+        return Ok(expand(ctx, &args.before, paths)?.unwrap_or(true));
+    }
+    for operand in &args.before {
+        match expand(ctx, slice::from_ref(operand), &[])? {
+            Some(false) => {}
+            Some(true) => return Ok(true),
+            None => return revision(ctx, operand),
+        }
+    }
+    Ok(false)
+}
+
+fn expand(
+    ctx: &Context,
+    revisions: &[OsString],
+    paths: &[OsString],
+) -> Result<Option<bool>, Error> {
+    let mut process = Process::spawn(ctx, &mut expansion(ctx, revisions, paths))?;
+    let mut bytes = Vec::new();
+    let read = process.stdout.read_to_end(&mut bytes);
+    let stderr = match process.finish() {
+        Err(Error::Git {
+            exit: Exit::Code(_),
+            ..
+        }) => return Ok(None),
+        finished => finished?,
+    };
+    read.map_err(Error::from)
+        .and_then(|_| has_negative(&bytes))
+        .map(Some)
+        .map_err(|error| error.with_stderr(stderr))
+}
+
+fn revision(ctx: &Context, operand: &OsStr) -> Result<bool, Error> {
+    match Process::spawn(ctx, &mut probe(ctx, operand))?.finish() {
+        Err(Error::Git {
+            exit: Exit::Code(_),
+            ..
+        }) => Ok(false),
+        probed => probed.map(|_| true),
     }
 }
 
@@ -57,14 +96,29 @@ fn has_negative(bytes: &[u8]) -> Result<bool, Error> {
     Ok(negative)
 }
 
-fn invocation(ctx: &Context, args: &LogArgs, boundary: bool) -> Command {
+fn expansion(ctx: &Context, revisions: &[OsString], paths: &[OsString]) -> Command {
     let mut command = command(ctx);
-    command.args(if boundary {
-        &["rev-list", "--boundary", "--parents", "--end-of-options"][..]
-    } else {
-        &["rev-parse", "--revs-only"][..]
-    });
-    command.args(&args.before);
+    command
+        .args(["rev-parse", "--revs-only"])
+        .args(revisions)
+        .arg("--")
+        .args(paths);
+    command
+}
+
+fn probe(ctx: &Context, operand: &OsStr) -> Command {
+    let mut command = command(ctx);
+    command
+        .args(["rev-list", "--no-walk", "--max-count=0", "--end-of-options"])
+        .arg(operand);
+    command
+}
+
+fn walk(ctx: &Context, args: &LogArgs) -> Command {
+    let mut command = command(ctx);
+    command
+        .args(["rev-list", "--boundary", "--parents", "--end-of-options"])
+        .args(&args.before);
     if let Some(paths) = &args.after {
         command.arg("--").args(paths);
     }
@@ -72,7 +126,7 @@ fn invocation(ctx: &Context, args: &LogArgs, boundary: bool) -> Command {
 }
 
 fn boundaries(ctx: &Context, args: &LogArgs) -> Result<HashSet<Oid>, Error> {
-    let mut process = Process::spawn(ctx, &mut invocation(ctx, args, true))?;
+    let mut process = Process::spawn(ctx, &mut walk(ctx, args))?;
     let result = parse(&mut process.stdout);
     let stderr = process.finish()?;
     result.map_err(|error| error.with_stderr(stderr))
@@ -140,26 +194,62 @@ mod tests {
 
     #[test]
     fn preserves_revisions_paths_and_parent_rewriting() {
-        let ctx = Context::default();
-        for boundary in [false, true] {
-            let args = LogArgs {
-                before: vec!["a..b".into(), "^c".into()],
-                after: Some(vec!["file".into(), "-p".into()]),
-                ..LogArgs::default()
-            };
-            let command = invocation(&ctx, &args, boundary);
-            let actual: Vec<_> = command
+        fn words(command: &Command) -> Vec<&str> {
+            command
                 .get_args()
                 .map(|arg| arg.to_str().unwrap())
-                .collect();
-            let mut expected = vec!["--no-pager"];
-            if boundary {
-                expected.extend(["rev-list", "--boundary", "--parents", "--end-of-options"]);
-            } else {
-                expected.extend(["rev-parse", "--revs-only"]);
+                .collect()
+        }
+        let ctx = Context::default();
+        let revisions = ["a..b".into(), "^c".into()];
+        let paths = ["file".into(), "-p".into()];
+        assert_eq!(
+            words(&expansion(&ctx, &revisions, &paths)),
+            [
+                "--no-pager",
+                "rev-parse",
+                "--revs-only",
+                "a..b",
+                "^c",
+                "--",
+                "file",
+                "-p"
+            ]
+        );
+        assert_eq!(
+            words(&expansion(&ctx, &revisions, &[])),
+            ["--no-pager", "rev-parse", "--revs-only", "a..b", "^c", "--"]
+        );
+        assert_eq!(
+            words(&probe(&ctx, OsStr::new("-p"))),
+            [
+                "--no-pager",
+                "rev-list",
+                "--no-walk",
+                "--max-count=0",
+                "--end-of-options",
+                "-p"
+            ]
+        );
+        for after in [None, Some(paths.to_vec())] {
+            let args = LogArgs {
+                before: revisions.to_vec(),
+                after: after.clone(),
+                ..LogArgs::default()
+            };
+            let mut expected = vec![
+                "--no-pager",
+                "rev-list",
+                "--boundary",
+                "--parents",
+                "--end-of-options",
+                "a..b",
+                "^c",
+            ];
+            if after.is_some() {
+                expected.extend(["--", "file", "-p"]);
             }
-            expected.extend(["a..b", "^c", "--", "file", "-p"]);
-            assert_eq!(actual, expected);
+            assert_eq!(words(&walk(&ctx, &args)), expected);
         }
     }
 }

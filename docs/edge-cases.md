@@ -190,14 +190,21 @@ TAB, which have separate message/framing cases.
 | Trimmed blank rows, prior-commit separators, and leftover rows                   | T      | Prefix and renderer goldens                          |
 | Prefix output preserves every partial-write error                                | T      | Renderer failure injection                           |
 | Rendered edges equal Git parents for exhaustive and generated DAGs               | T      | Independent glyph-to-edge oracle                     |
+| No rendered lane is still open after the final row                               | T      | Independent glyph-to-edge oracle                     |
 | Determinism, column-zero mainline, and color-independent text                    | T      | Graph output properties in both object formats       |
 | Default and configured lane colors agree with Git                                | T      | Incoming-edge colors in both object formats          |
 | Empty palettes, empty entries, and more than 65,535 colors                       | T      | Palette parsing and color-counter bounds             |
 | Empty palette leaves lanes uncolored; Git divides by zero (SIGFPE on x86)        | T      | Compared with Git’s `normal` palette                 |
 | A trailing comma adds no palette entry                                           | T      | Compared with Git’s lanes for `red,` and `red,blue,` |
 | Exclusion and symmetric ranges have no dangling parent lanes                     | T      | `tests/it/ranges.rs`, both object formats            |
+| `^X^@`, `^X^!`, and `^X^-` exclusions match Git with and without `--` and paths  | T      | `parent_shorthand_exclusions_match_git`              |
+| A positive revision before paths without `--` skips the boundary walk            | T      | Fake-Git command counts                              |
+| Only operands rev-parse rejects are probed, so no range is walked twice          | T      | Fake-Git command counts                              |
+| A bare `..` is the parent directory, as in Git, not the range `HEAD..HEAD`       | T      | `a_bare_parent_directory_is_a_path_as_in_git`        |
 | Path-limited boundaries follow Git’s rewritten parents                           | T      | `path_limited_ranges_hide_rewritten_parents`         |
-| Ordinary revisions skip the pre-pass; Git errors preserve status and stderr      | T      | Fake-Git command counts and failure cases            |
+| Ordinary revisions skip the pre-pass; failing steps keep Git’s status and stderr | T      | Fake-Git command counts and failure cases            |
+| A rejected expansion drops its stderr; the walk or `git log` reports Git errors  | T      | Fake-Git failure cases                               |
+| A pre-pass child killed by a signal keeps that status                            | T      | Fake-Git failure cases                               |
 | Pre-pass warnings print once, as Git prints them                                 | T      | `prepass_warnings_appear_once_as_in_git`             |
 | Compaction moves one rightmost lane into a hole without changing edges or colors | T      | Layout goldens and long generated histories          |
 | Holes wait 20 commits before compaction, so a jog can follow any commit          | T      | Layout goldens and an oracle-checked history         |

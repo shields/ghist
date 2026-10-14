@@ -32,12 +32,24 @@ The process sequence is:
 1. `git --no-pager config --list -z` reads configuration. Last entries win,
    including aliases whose relative order matters.
 2. If an operand before `--` contains `^` or `..`, `rev-parse --revs-only`
-   expands it. A negative result triggers
-   `rev-list --boundary --parents --end-of-options`, with the same paths. Only
-   the hidden boundary IDs are retained. `--parents` is necessary for
-   path-limited parent rewriting. A failing step keeps its status and stderr. A
-   step that succeeds drops its stderr, since `git log` repeats its warnings;
-   tracing the pre-pass therefore needs a `GIT_TRACE` file target.
+   expands operands followed by `--`, so that it rejects an operand it cannot
+   parse, such as `^X^@`, `^X^!`, or `^X^-`, instead of silently dropping it
+   along with every later operand. With the user’s `--`, one call expands every
+   operand before the paths. Without it, the operands may end in paths, so ghist
+   expands them one at a time and stops at the first negative result or the
+   first rejected operand. `rev-list --no-walk --max-count=0 --end-of-options`
+   then classifies a rejected operand by Git’s own rules, without `--`: either
+   it is a revision only `rev-list` and `git log` parse, or it is the first
+   path, as in `HEAD^ src` or a bare `..`, and no exclusion precedes it. Only
+   rejected operands are probed because `rev-list` walks a range despite
+   `--no-walk`. A negative result, a revision only `rev-list` parses, or a
+   rejected expansion with the user’s `--` triggers
+   `rev-list --boundary --parents --end-of-options`, with the same operands and
+   paths. Only the hidden boundary IDs are retained. `--parents` is necessary
+   for path-limited parent rewriting. A rejection answers the question rather
+   than failing, so its stderr is dropped. A failing step keeps its status and
+   stderr. A step that succeeds drops its stderr, since `git log` repeats its
+   warnings; tracing the pre-pass therefore needs a `GIT_TRACE` file target.
 3. The main `git log` streams records and requested diffs.
 4. Binary stat entries lazily start one
    `git cat-file --batch-check=%(objectsize)` child with piped stdin.

@@ -14,6 +14,8 @@
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(coverage_nightly))]
+    use crate::common::oracle;
     use crate::common::{
         history::{Change, Commit, History},
         repo::TestRepo,
@@ -58,6 +60,19 @@ esac
                 (Exit::Code(0), vec![])
             );
         }
+        assert_eq!(
+            run(
+                &repo,
+                br#"case "$2" in
+config|log) exit 0;;
+rev-parse) test "$4" != file || { printf 'rejected\n' >&2; exit 128; }; printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n';;
+rev-list) test "$3" = --no-walk && test "$6" = file || kill -TERM $$; printf 'not a revision\n' >&2; exit 128;;
+esac
+"#,
+                &["HEAD^", "file"]
+            ),
+            (Exit::Code(0), vec![])
+        );
         for args in [vec!["HEAD~2.."], vec!["HEAD", "^HEAD~2"]] {
             assert_eq!(run(&repo, br#"case "$2" in
 config) : > walked;;
@@ -75,8 +90,12 @@ esac
         for (script, exit, expected) in [
             (br#"case "$2" in config) exit 0;; rev-parse) printf 'bad\n'; printf 'rev warning\n' >&2;; esac
 "#.as_slice(), Exit::Code(1), b"rev warning\nghist: invalid git output: invalid object ID length\n".as_slice()),
-            (br#"case "$2" in config) exit 0;; rev-parse) printf 'revision failure\377\n' >&2; exit 71;; esac
+            (br#"case "$2" in config) exit 0;; rev-parse) printf 'rejected\n' >&2; exit 70;; rev-list) test "$3" = --no-walk && exit 0; printf 'revision failure\377\n' >&2; exit 71;; esac
 "#.as_slice(), Exit::Code(71), b"revision failure\xff\n".as_slice()),
+            (br#"case "$2" in config) exit 0;; rev-parse) kill -TERM $$;; esac
+"#.as_slice(), Exit::Signal(15), b"".as_slice()),
+            (br#"case "$2" in config) exit 0;; rev-parse) exit 128;; rev-list) kill -TERM $$;; esac
+"#.as_slice(), Exit::Signal(15), b"".as_slice()),
             (br#"case "$2" in config) exit 0;; rev-parse) printf '^aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'; printf 'rev warning\n' >&2;; rev-list) printf '%s\n' '-bad'; printf 'boundary failure\n' >&2; exit 72;; esac
 "#.as_slice(), Exit::Code(72), b"boundary failure\n".as_slice()),
             (br#"case "$2" in config) exit 0;; rev-parse) printf '^aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'; printf 'rev warning\n' >&2;; rev-list) printf '%s\n' '-bad'; printf 'boundary warning\n' >&2;; esac
@@ -117,6 +136,53 @@ esac
                 String::from_utf8_lossy(&expected),
                 "{args:?}"
             );
+        }
+    }
+
+    #[cfg(not(coverage_nightly))]
+    #[test]
+    fn parent_shorthand_exclusions_match_git() {
+        for format in ["sha1", "sha256"] {
+            let repo = TestRepo::new(format).unwrap();
+            let mut history = History::default();
+            let mut push = |parents: Vec<usize>, branch: &str| {
+                let data = format!("{}\n", history.commits.len()).into_bytes();
+                history.push(Commit {
+                    parents,
+                    branch: branch.into(),
+                    changes: vec![Change::Write {
+                        mode: 0o100_644,
+                        path: b"file".to_vec(),
+                        data,
+                    }],
+                    ..Commit::default()
+                })
+            };
+            let root = push(vec![], "refs/heads/main");
+            let left = push(vec![root], "refs/heads/main");
+            let right = push(vec![root], "refs/heads/main");
+            let merge = push(vec![left, right], "refs/heads/main");
+            push(vec![merge], "refs/heads/b1");
+            let other = push(vec![left, right], "refs/heads/main");
+            push(vec![other], "refs/heads/b0");
+            repo.import(&history).unwrap();
+            repo.write("file", b"worktree\n").unwrap();
+            for args in [
+                vec!["b1", "^b1^@", "b0"],
+                vec!["^b1^@", "b1"],
+                vec!["b0", "^b0~1^!"],
+                vec!["b0", "^b0~1^-"],
+                vec!["b0", "^b0~1^-2"],
+                vec!["b1", "^b1^@", "--"],
+                vec!["b1", "^b1^@", "--", "file"],
+                vec!["b1", "^b1^@", "file"],
+                vec!["b0~1..", "file"],
+                vec!["b1^", "file"],
+                vec!["b1^@"],
+                vec!["b0~1^!"],
+            ] {
+                oracle::fuller(&repo, &args).unwrap();
+            }
         }
     }
 
@@ -192,11 +258,16 @@ esac
                 });
             }
             repo.import(&history).unwrap();
+            repo.write("file", b"worktree\n").unwrap();
             for args in [
                 vec!["HEAD~1.."],
                 vec!["HEAD", "^HEAD~1"],
                 vec!["HEAD~1...HEAD"],
                 vec!["HEAD~1..", "--", "file"],
+                vec!["HEAD", "^HEAD^@"],
+                vec!["HEAD", "^HEAD~1^!", "--"],
+                vec!["HEAD", "^HEAD~1^-", "file"],
+                vec!["HEAD~1..", "file"],
             ] {
                 let mut out = Vec::new();
                 let mut err = Vec::new();
@@ -218,6 +289,47 @@ esac
                     1
                 );
             }
+        }
+    }
+
+    #[test]
+    fn a_bare_parent_directory_is_a_path_as_in_git() {
+        let repo = TestRepo::new("sha1").unwrap();
+        let mut history = History::default();
+        let mut parents = vec![];
+        for index in 0..3 {
+            parents = vec![history.push(Commit {
+                parents,
+                changes: vec![Change::Write {
+                    mode: 0o100_644,
+                    path: b"file".to_vec(),
+                    data: format!("{index}\n").into_bytes(),
+                }],
+                ..Commit::default()
+            })];
+        }
+        repo.import(&history).unwrap();
+        std::fs::create_dir(repo.cwd.join("sub")).unwrap();
+        for args in [vec![".."], vec!["HEAD", ".."]] {
+            let ctx = ghist::Context {
+                cwd: repo.cwd.join("sub"),
+                ..repo.context(&args)
+            };
+            let mut out = Vec::new();
+            let mut err = Vec::new();
+            assert_eq!(
+                ghist::run(&ctx, &mut out, &mut err),
+                Exit::Code(0),
+                "{args:?}: {}",
+                String::from_utf8_lossy(&err)
+            );
+            assert_eq!(err, b"");
+            assert_eq!(
+                out.windows("●".len())
+                    .filter(|part| *part == "●".as_bytes())
+                    .count(),
+                3
+            );
         }
     }
 }
