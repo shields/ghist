@@ -165,8 +165,8 @@ mod tests {
 
     fn scripted_context(repo: &TestRepo, command: &str, tail: &[u8]) -> Context {
         let mut script = br#"if test "$2" = config; then printf 'config warning\n' >&2; exit 0; fi
-printf '\036\037ghist\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\000aaaa\000\000\000A\000a\000date\000A\000a\000date\000\000message\000\n'
 printf 'log warning\n' >&2
+printf '\036\037ghist\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\000aaaa\000\000\000A\000a\000date\000A\000a\000date\000\000message\000\n'
 "#.to_vec();
         script.extend_from_slice(tail);
         let fake = repo.fake_git(&script).unwrap();

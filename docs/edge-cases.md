@@ -224,7 +224,7 @@ TAB, which have separate message/framing cases.
 | A quiet exit after closed output still prints Git’s warnings                         | T      | `a_closed_output_stops_git_and_keeps_warnings`                         |
 | Nonzero pager exit outranks a broken output pipe                                     | T      | `early_pager_exit_is_quiet_but_preserves_nonzero_status`               |
 | A Git process that already failed outranks a broken output pipe                      | T      | `a_git_failure_outranks_a_closed_output`, `waitid` exit handshake      |
-| A nonzero pager exit after a broken output pipe keeps Git’s warnings                 | T      | `early_pager_failure_keeps_git_warnings`                               |
+| A nonzero pager exit after a broken output pipe keeps Git’s warnings                 | T      | `early_pager_failure_keeps_git_warnings`, warning before stdout        |
 | Closed output stops an unbounded Git stream                                          | T      | `a_closed_output_stops_git_and_keeps_warnings`                         |
 | INT, QUIT, TERM and HUP interrupt Git reads and waits, reap Git, and re-raise        | T      | `tests/it/signals.rs`, real binary statuses                            |
 | Signal cleanup closes pager stdin and waits for its exit                             | T      | Pager EOF and release handshake                                        |
