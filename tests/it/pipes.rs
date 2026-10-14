@@ -101,7 +101,7 @@ exit 128
     }
 
     #[test]
-    fn a_closed_output_stops_an_unbounded_git_stream() {
+    fn a_closed_output_stops_git_and_keeps_warnings() {
         struct Closed;
         impl Write for Closed {
             fn write(&mut self, _: &[u8]) -> io::Result<usize> {
@@ -112,7 +112,8 @@ exit 128
             }
         }
         let repo = TestRepo::new("sha1").unwrap();
-        let mut ctx = repo.fake_git(br#"if test "$2" = config; then exit 0; fi
+        let mut ctx = repo.fake_git(br#"if test "$2" = config; then printf 'config warning\n' >&2; exit 0; fi
+printf 'log warning\n' >&2
 while test ! -e "$STOP"; do
 printf '\036\037ghist\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\000aaaa\000\000\000A\000a\000date\000A\000a\000date\000\000message\000\n'
 done
@@ -130,7 +131,10 @@ done
             std::fs::write(stop, b"stop").unwrap();
         }
         worker.join().unwrap();
-        assert_eq!(completed.unwrap(), (Exit::Code(0), vec![]));
+        assert_eq!(
+            completed.unwrap(),
+            (Exit::Code(0), b"config warning\nlog warning\n".to_vec())
+        );
         Closed.flush().unwrap();
     }
 }

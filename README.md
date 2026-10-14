@@ -71,7 +71,7 @@ When stdout is a terminal, the pager is `$GIT_PAGER`, then `core.pager`, then
 `$PAGER`, then `less`. An empty value or `cat` disables it. `LESS=FRX` and
 `LV=-c` are defaults only when those variables are unset. Git diagnostics appear
 after the pager exits. A failed pager returns an error; quitting a successful
-pager early, or piping into `head`, exits quietly.
+pager early, or piping into `head`, succeeds and prints only Git’s warnings.
 
 ## Recommended usage
 

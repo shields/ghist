@@ -219,10 +219,11 @@ TAB, which have separate message/framing cases.
 | Output flushes before an unbuffered read; diagnostics wait for pager exit            | T      | `git::buffer::tests`, fake-Git handshake                               |
 | Nonzero and missing pagers preserve their exit status                                | T      | `tests/it/paging.rs`                                                   |
 | Closed stdout and early successful pager exit are quiet successes                    | T      | `tests/it/pipes.rs`, real binary pipes                                 |
+| A quiet exit after closed output still prints Git’s warnings                         | T      | `a_closed_output_stops_git_and_keeps_warnings`                         |
 | Nonzero pager exit outranks a broken output pipe                                     | T      | `early_pager_exit_is_quiet_but_preserves_nonzero_status`               |
 | A Git process that already failed outranks a broken output pipe                      | T      | `a_git_failure_outranks_a_closed_output`                               |
 | A nonzero pager exit after a broken output pipe keeps Git’s warnings                 | T      | `early_pager_failure_keeps_git_warnings`                               |
-| Closed output stops an unbounded Git stream                                          | T      | `a_closed_output_stops_an_unbounded_git_stream`                        |
+| Closed output stops an unbounded Git stream                                          | T      | `a_closed_output_stops_git_and_keeps_warnings`                         |
 | INT, QUIT, TERM and HUP interrupt Git reads and waits, reap Git, and re-raise        | T      | `tests/it/signals.rs`, real binary statuses                            |
 | Signal cleanup closes pager stdin and waits for its exit                             | T      | Pager EOF and release handshake                                        |
 | Cancellation interrupts empty reads and full writes without changing inherited flags | T      | `signal::tests`                                                        |

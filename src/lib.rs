@@ -66,8 +66,8 @@ pub fn run(ctx: &Context, out: &mut dyn Write, err: &mut dyn Write) -> Exit {
     }
     let exit = match result {
         Ok(()) => Exit::Code(0),
-        Err(error) if error.is_broken_pipe() => Exit::Code(0),
         Err(error) => match error.report(err) {
+            Ok(()) if error.is_broken_pipe() => Exit::Code(0),
             Ok(()) => error.exit(),
             Err(error) if error.kind() == std::io::ErrorKind::BrokenPipe => Exit::Code(0),
             Err(_) => Exit::Code(1),

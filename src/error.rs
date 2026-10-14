@@ -64,6 +64,7 @@ impl Error {
         match self {
             Self::Git { stderr, .. } => err.write_all(stderr)?,
             Self::Pager(_) => {}
+            Self::Io(error) if error.kind() == io::ErrorKind::BrokenPipe => {}
             Self::WithStderr { error, stderr } => {
                 err.write_all(stderr)?;
                 return error.report(err);
@@ -190,9 +191,14 @@ mod tests {
 
     #[test]
     fn broken_pipe_detection_preserves_diagnostic_wrappers() {
-        let error = Error::Io(io::ErrorKind::BrokenPipe.into()).with_stderr(b"warning\n".to_vec());
+        let error = Error::Io(io::ErrorKind::BrokenPipe.into())
+            .with_stderr(b"inner\n".to_vec())
+            .with_stderr(b"outer\xff\n".to_vec());
         assert!(error.is_broken_pipe());
         assert!(!Error::Io(io::Error::other("failure")).is_broken_pipe());
+        let mut err = Vec::new();
+        error.report(&mut err).unwrap();
+        assert_eq!(err, b"outer\xff\ninner\n");
     }
 
     #[test]
