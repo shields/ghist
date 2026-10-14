@@ -19,6 +19,7 @@ mod tests {
         repo::TestRepo,
     };
     use ghist::Exit;
+    use rustix::process::{Pid, WaitId, WaitIdOptions, waitid};
     use std::io::{self, BufRead, BufReader, Write};
     use std::sync::mpsc;
     use std::time::Duration;
@@ -77,9 +78,20 @@ mod tests {
 
     #[test]
     fn a_git_failure_outranks_a_closed_output() {
-        struct Closed;
+        struct Closed(std::path::PathBuf);
         impl Write for Closed {
             fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                let raw_pid = std::fs::read_to_string(&self.0)?
+                    .trim()
+                    .parse()
+                    .map_err(io::Error::other)?;
+                let pid =
+                    Pid::from_raw(raw_pid).ok_or_else(|| io::Error::other("invalid git pid"))?;
+                waitid(
+                    WaitId::Pid(pid),
+                    WaitIdOptions::EXITED | WaitIdOptions::NOWAIT,
+                )?
+                .ok_or_else(|| io::Error::other("missing git exit status"))?;
                 Err(io::ErrorKind::BrokenPipe.into())
             }
             fn flush(&mut self) -> io::Result<()> {
@@ -87,17 +99,24 @@ mod tests {
             }
         }
         let repo = TestRepo::new("sha1").unwrap();
-        let ctx = repo.fake_git(br#"if test "$2" = config; then printf 'config warning\n' >&2; exit 0; fi
+        let mut ctx = repo.fake_git(br#"if test "$2" = config; then printf 'config warning\n' >&2; exit 0; fi
+printf '%s\n' "$$" > "$PID"
 printf '\036\037ghist\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\000aaaa\000\000\000A\000a\000date\000A\000a\000date\000\000message\000\n'
 printf 'fatal: unable to read tree\n' >&2
 exit 128
 "#).unwrap();
+        let pidfile = repo.cwd.join("git.pid");
+        ctx.env
+            .push(("PID".into(), pidfile.clone().into_os_string()));
         for _ in 0..4 {
             let mut err = Vec::new();
-            assert_eq!(ghist::run(&ctx, &mut Closed, &mut err), Exit::Code(128));
+            assert_eq!(
+                ghist::run(&ctx, &mut Closed(pidfile.clone()), &mut err),
+                Exit::Code(128)
+            );
             assert_eq!(err, b"config warning\nfatal: unable to read tree\n");
         }
-        Closed.flush().unwrap();
+        Closed(pidfile).flush().unwrap();
     }
 
     #[test]
