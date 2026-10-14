@@ -35,7 +35,9 @@ The process sequence is:
    expands it. A negative result triggers
    `rev-list --boundary --parents --end-of-options`, with the same paths. Only
    the hidden boundary IDs are retained. `--parents` is necessary for
-   path-limited parent rewriting.
+   path-limited parent rewriting. A failing step keeps its status and stderr. A
+   step that succeeds drops its stderr, since `git log` repeats its warnings;
+   tracing the pre-pass therefore needs a `GIT_TRACE` file target.
 3. The main `git log` streams records and requested diffs.
 4. Binary stat entries lazily start one
    `git cat-file --batch-check=%(objectsize)` child with piped stdin.

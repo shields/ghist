@@ -55,17 +55,17 @@ esac
 "#,
                     &args
                 ),
-                (Exit::Code(0), b"rev warning\n".to_vec())
+                (Exit::Code(0), vec![])
             );
         }
         for args in [vec!["HEAD~2.."], vec!["HEAD", "^HEAD~2"]] {
             assert_eq!(run(&repo, br#"case "$2" in
-config) exit 0;;
+config) : > walked;;
 rev-parse) printf '^aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'; printf 'rev warning\n' >&2;;
-rev-list) printf '%s\n' '-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; printf 'boundary warning\n' >&2;;
-log) printf 'log warning\n' >&2;;
+rev-list) printf '%s\n' '-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; printf 'boundary warning\n' >&2; printf 1 > walked;;
+log) test -s walked || exit 94; printf 'log warning\n' >&2;;
 esac
-"#, &args), (Exit::Code(0), b"rev warning\nboundary warning\nlog warning\n".to_vec()));
+"#, &args), (Exit::Code(0), b"log warning\n".to_vec()));
         }
     }
 
@@ -78,11 +78,45 @@ esac
             (br#"case "$2" in config) exit 0;; rev-parse) printf 'revision failure\377\n' >&2; exit 71;; esac
 "#.as_slice(), Exit::Code(71), b"revision failure\xff\n".as_slice()),
             (br#"case "$2" in config) exit 0;; rev-parse) printf '^aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'; printf 'rev warning\n' >&2;; rev-list) printf '%s\n' '-bad'; printf 'boundary failure\n' >&2; exit 72;; esac
-"#.as_slice(), Exit::Code(72), b"rev warning\nboundary failure\n".as_slice()),
+"#.as_slice(), Exit::Code(72), b"boundary failure\n".as_slice()),
             (br#"case "$2" in config) exit 0;; rev-parse) printf '^aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n'; printf 'rev warning\n' >&2;; rev-list) printf '%s\n' '-bad'; printf 'boundary warning\n' >&2;; esac
-"#.as_slice(), Exit::Code(1), b"rev warning\nboundary warning\nghist: invalid git output: invalid object ID length\n".as_slice()),
+"#.as_slice(), Exit::Code(1), b"boundary warning\nghist: invalid git output: invalid object ID length\n".as_slice()),
         ] {
             assert_eq!(run(&repo, script, &["HEAD~2.."]), (exit, expected.to_vec()));
+        }
+    }
+
+    #[test]
+    fn prepass_warnings_appear_once_as_in_git() {
+        let repo = TestRepo::new("sha1").unwrap();
+        let mut history = History::default();
+        let mut parent = history.push(Commit::default());
+        for _ in 1..4 {
+            parent = history.push(Commit {
+                parents: vec![parent],
+                ..Commit::default()
+            });
+        }
+        history.refs = vec![
+            ("refs/tags/dup".into(), parent - 1),
+            ("refs/heads/dup".into(), parent),
+        ];
+        repo.import(&history).unwrap();
+        for args in [vec!["dup^"], vec!["dup", "^dup~2"], vec!["dup~2..dup"]] {
+            let expected = repo
+                .git_stderr(["log", "--end-of-options"].iter().chain(&args))
+                .unwrap();
+            assert_ne!(expected, b"");
+            let mut err = Vec::new();
+            assert_eq!(
+                ghist::run(&repo.context(&args), &mut Vec::new(), &mut err),
+                Exit::Code(0)
+            );
+            assert_eq!(
+                String::from_utf8_lossy(&err),
+                String::from_utf8_lossy(&expected),
+                "{args:?}"
+            );
         }
     }
 

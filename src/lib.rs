@@ -113,8 +113,7 @@ fn log(
         let stat_options = render::stat::Options::read(ctx, &config)?;
         let mut sizes = git::catfile::Sizes::new(ctx);
         let mut lookup_failed = false;
-        let (hidden, warnings) = git::revs::hidden(ctx, args)?;
-        stderr.extend(warnings);
+        let hidden = git::revs::hidden(ctx, args)?;
         let output = RefCell::new(out::Output::new(ctx, out, pager));
         let mut writer = out::Shared(&output);
         let mut renderer = render::Renderer::new(&mut writer, palette.as_ref(), hidden);

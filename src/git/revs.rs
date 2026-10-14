@@ -20,27 +20,25 @@ use std::process::Command;
 use super::{Process, command};
 use crate::{Context, args::LogArgs, error::Error, oid::Oid};
 
-pub fn hidden(ctx: &Context, args: &LogArgs) -> Result<(HashSet<Oid>, Vec<u8>), Error> {
+pub fn hidden(ctx: &Context, args: &LogArgs) -> Result<HashSet<Oid>, Error> {
     if !args.before.iter().any(|arg| {
         let bytes = arg.as_bytes();
         bytes.contains(&b'^') || bytes.windows(2).any(|part| part == b"..")
     }) {
-        return Ok((HashSet::new(), Vec::new()));
+        return Ok(HashSet::new());
     }
     let mut process = Process::spawn(ctx, &mut invocation(ctx, args, false))?;
     let mut bytes = Vec::new();
     let read = process.stdout.read_to_end(&mut bytes);
     let stderr = process.finish()?;
-    let negative = match read.map_err(Error::from).and_then(|_| has_negative(&bytes)) {
-        Ok(negative) => negative,
-        Err(error) => return Err(error.with_stderr(stderr)),
-    };
-    if !negative {
-        return Ok((HashSet::new(), stderr));
-    }
-    match boundaries(ctx, args) {
-        Ok((hidden, warnings)) => Ok((hidden, [stderr, warnings].concat())),
-        Err(error) => Err(error.with_stderr(stderr)),
+    let negative = read
+        .map_err(Error::from)
+        .and_then(|_| has_negative(&bytes))
+        .map_err(|error| error.with_stderr(stderr))?;
+    if negative {
+        boundaries(ctx, args)
+    } else {
+        Ok(HashSet::new())
     }
 }
 
@@ -73,14 +71,11 @@ fn invocation(ctx: &Context, args: &LogArgs, boundary: bool) -> Command {
     command
 }
 
-fn boundaries(ctx: &Context, args: &LogArgs) -> Result<(HashSet<Oid>, Vec<u8>), Error> {
+fn boundaries(ctx: &Context, args: &LogArgs) -> Result<HashSet<Oid>, Error> {
     let mut process = Process::spawn(ctx, &mut invocation(ctx, args, true))?;
     let result = parse(&mut process.stdout);
     let stderr = process.finish()?;
-    match result {
-        Ok(hidden) => Ok((hidden, stderr)),
-        Err(error) => Err(error.with_stderr(stderr)),
-    }
+    result.map_err(|error| error.with_stderr(stderr))
 }
 
 fn parse(reader: &mut dyn BufRead) -> Result<HashSet<Oid>, Error> {

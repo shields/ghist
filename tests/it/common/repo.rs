@@ -155,7 +155,14 @@ impl TestRepo {
     }
 
     pub fn git(&self, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> io::Result<Vec<u8>> {
-        checked(self.command(args).output()?)
+        Ok(checked(self.command(args).output()?)?.stdout)
+    }
+
+    pub fn git_stderr(
+        &self,
+        args: impl IntoIterator<Item = impl AsRef<OsStr>>,
+    ) -> io::Result<Vec<u8>> {
+        Ok(checked(self.command(args).output()?)?.stderr)
     }
 
     pub fn import(&self, history: &History) -> io::Result<()> {
@@ -182,7 +189,7 @@ impl TestRepo {
                 Ok(result) => result?,
                 Err(payload) => std::panic::resume_unwind(payload),
             }
-            checked(output)
+            checked(output).map(|output| output.stdout)
         })
     }
 
@@ -226,9 +233,9 @@ impl TestRepo {
     }
 }
 
-fn checked(output: Output) -> io::Result<Vec<u8>> {
+fn checked(output: Output) -> io::Result<Output> {
     if output.status.success() {
-        Ok(output.stdout)
+        Ok(output)
     } else {
         Err(io::Error::other(format!(
             "git exited {}: {}",
