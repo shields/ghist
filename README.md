@@ -48,9 +48,10 @@ There are no display flags.
 │ │      Add the frobnicator
 ```
 
-- Full hashes are labeled `sha1` or `sha256`. The part after the shortest unique
-  prefix is dimmed. Merge-parent hashes extend to at least seven digits, with
-  the same dimming.
+- Full hashes are labeled `sha1` or `sha256`. The part after Git’s abbreviation
+  is dimmed. Abbreviations follow `core.abbrev`, including Git’s automatic
+  default and `no` for full hashes. Merge-parent hashes extend to at least seven
+  digits, with the same dimming.
 - `Commit:` appears only when the committer’s identity differs from the author’s
   after mailmap. `CommitDate:` appears only when the date or time zone differs.
   Dates retain each identity’s own time zone.
@@ -59,9 +60,8 @@ There are no display flags.
 - Stat widths account for the graph column. Terminal width comes from `COLUMNS`,
   the terminal, or 80 columns, in that order.
 - Generated lines have no trailing whitespace. Patch bytes are preserved,
-  including trailing whitespace and Git’s colors. Patch `index` lines use
-  shortest-unique abbreviations with a minimum of four digits because Git shares
-  the abbreviation setting with commit headers.
+  including trailing whitespace and Git’s colors. Patch `index` lines use the
+  same `core.abbrev` setting as commit headers.
 
 Color follows Git’s configuration. `NO_COLOR` disables automatic color; explicit
 `color.ui=always` or `color.diff=always` still wins. Invalid color values are

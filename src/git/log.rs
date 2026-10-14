@@ -31,7 +31,6 @@ pub fn log_command(ctx: &Context, args: &LogArgs, mailmap: bool, color: bool) ->
         "--no-diff-merges",
         "--topo-order",
         "--parents",
-        "--abbrev=4",
         "--decorate=full",
         "--no-follow",
         "--no-show-signature",
@@ -511,14 +510,13 @@ mod tests {
                 .map(|arg| arg.to_str().unwrap())
                 .collect();
             assert_eq!(
-                invocation[..11],
+                invocation[..10],
                 [
                     "--no-pager",
                     "log",
                     "--no-diff-merges",
                     "--topo-order",
                     "--parents",
-                    "--abbrev=4",
                     "--decorate=full",
                     "--no-follow",
                     "--no-show-signature",
@@ -526,9 +524,9 @@ mod tests {
                     "--color=never"
                 ]
             );
-            assert!(invocation[11].contains(if mailmap { "%aN%x00%aE" } else { "%an%x00%ae" }));
+            assert!(invocation[10].contains(if mailmap { "%aN%x00%aE" } else { "%an%x00%ae" }));
             assert_eq!(
-                invocation[12..],
+                invocation[11..],
                 [
                     "-p",
                     "--raw",

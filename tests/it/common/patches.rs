@@ -25,7 +25,6 @@ pub fn compare(repo: &TestRepo, args: &[&str]) -> io::Result<()> {
         "--format=%x1e%H",
         "--topo-order",
         "--parents",
-        "--abbrev=4",
         "--decorate=full",
         "--no-follow",
         "--no-show-signature",

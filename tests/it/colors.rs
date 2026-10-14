@@ -74,6 +74,7 @@ mod tests {
     fn dim_boundary_matches_all_object_neighbors_in_both_formats() {
         for format in ["sha1", "sha256"] {
             let repo = TestRepo::new(format).unwrap();
+            repo.git(["config", "core.abbrev", "4"]).unwrap();
             let mut history = History::default();
             let mut parent = history.push(Commit {
                 changes: (0..3000)
@@ -150,6 +151,90 @@ mod tests {
             }
             assert_eq!(headers, 501);
             assert!(collisions > 0, "{format}");
+        }
+    }
+
+    #[test]
+    fn core_abbrev_controls_header_dimming_and_patches() {
+        for format in ["sha1", "sha256"] {
+            let repo = TestRepo::new(format).unwrap();
+            let mut history = History::default();
+            let left = history.push(Commit {
+                changes: vec![Change::Write {
+                    mode: 0o100_644,
+                    path: b"file".to_vec(),
+                    data: b"left\n".to_vec(),
+                }],
+                ..Commit::default()
+            });
+            let right = history.push(Commit {
+                branch: "refs/heads/side".into(),
+                changes: vec![Change::Write {
+                    mode: 0o100_644,
+                    path: b"file".to_vec(),
+                    data: b"right\n".to_vec(),
+                }],
+                ..Commit::default()
+            });
+            history.push(Commit {
+                parents: vec![left, right],
+                ..Commit::default()
+            });
+            repo.import(&history).unwrap();
+            repo.git(["config", "color.ui", "always"]).unwrap();
+            for setting in [
+                None,
+                Some("4"),
+                Some("12"),
+                Some("65"),
+                Some("auto"),
+                Some("no"),
+                Some(""),
+            ] {
+                if let Some(setting) = setting {
+                    repo.git(["config", "core.abbrev", setting]).unwrap();
+                }
+                let reference = repo
+                    .git([
+                        "log",
+                        "--max-count=1",
+                        "--format=%H%n%h%n%P%n%p",
+                        "--color=never",
+                    ])
+                    .unwrap();
+                let fields: Vec<_> = reference
+                    .trim_ascii_end()
+                    .split(|&byte| byte == b'\n')
+                    .collect();
+                assert_eq!(fields.len(), 4);
+                let colored = crate::common::graph_text::strip(&capture(&repo)).unwrap();
+                let lines: Vec<_> = colored.split(|&byte| byte == b'\n').collect();
+                let plain = ansi::strip(&colored);
+                assert!(plain.starts_with(&[format.as_bytes(), b" ", fields[0]].concat()));
+                for (line, short, display) in std::iter::once((lines[0], fields[1], fields[0]))
+                    .chain(
+                        fields[2]
+                            .split(|&byte| byte == b' ')
+                            .zip(fields[3].split(|&byte| byte == b' '))
+                            .map(|(full, short)| (lines[1], short, &full[..short.len().max(7)])),
+                    )
+                {
+                    let expected = if short.len() == display.len() {
+                        display.to_vec()
+                    } else {
+                        [short, b"\x1b[22;2m", &display[short.len()..]].concat()
+                    };
+                    assert!(
+                        line.windows(expected.len()).any(|part| part == expected),
+                        "{format} {setting:?}: {line:?}"
+                    );
+                    if fields[0].len() == fields[1].len() {
+                        assert!(!line.windows(7).any(|part| part == b"\x1b[22;2m"));
+                    }
+                }
+                crate::common::patches::compare(&repo, &[]).unwrap();
+                crate::common::stats::combined(&repo, &[], 80).unwrap();
+            }
         }
     }
 

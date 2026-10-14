@@ -64,11 +64,16 @@ observe different states.
 The main invocation is:
 
 ```text
-git --no-pager log --no-diff-merges --topo-order --parents --abbrev=4 --decorate=full
+git --no-pager log --no-diff-merges --topo-order --parents --decorate=full
   --no-follow --no-show-signature --no-ext-diff --color=always|never
   --format=tformat:%x1e%x1fghist%n%H%x00%h%x00%P%x00%p%x00%aN%x00%aE%x00%ai%x00%cN%x00%cE%x00%ci%x00%D%x00%B%x00
   [-p] [--raw --numstat] --end-of-options <operands> [-- <paths>]
 ```
+
+Git applies `core.abbrev` to `%h`, `%p`, and patch `index` lines. When unset or
+`auto`, Git chooses the abbreviation length; `no` gives full hashes. The
+renderer dims the part after Git’s abbreviation and shows merge parents with at
+least seven digits.
 
 When `log.mailmap=false`, lowercase `%an/%ae/%cn/%ce` replace the mailmapped
 identity placeholders. No `--root` is added, so `log.showRoot` applies.

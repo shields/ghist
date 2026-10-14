@@ -89,18 +89,19 @@ behavior entries above stay marked as gaps until ghist itself is tested.
 
 ## Configuration and subprocess setup
 
-| Dimension                                                      | Status | Evidence                                                   |
-| -------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
-| Last-entry precedence across aliases; subsection case          | T      | `git::config::tests`                                       |
-| Bare, empty, multiline, and non-UTF-8 configuration values     | T      | `git::config::tests`                                       |
-| Boolean keywords, numeric bases, scale suffixes, signed bounds | T      | `env::tests`, `tests/it/config.rs`                         |
-| Invalid `log.mailmap` values exit 128                          | T      | `reads_real_config_and_rejects_invalid_boolean`            |
-| Explicit argv, allowlisted environment, null stdin             | T      | `config_subprocess_has_explicit_arguments_and_environment` |
-| Raw stderr, nonzero status, signal status, and spawn failures  | T      | `tests/it/config.rs`                                       |
-| Large stderr does not block stdout                             | T      | `drains_large_stderr_without_deadlocking`                  |
-| Git failures take precedence over malformed protocol output    | T      | `prioritizes_git_failures_over_malformed_stdout`           |
-| Help and version avoid spawning Git                            | T      | `informational_options_do_not_start_git`                   |
-| Stderr write and flush failures remain errors                  | T      | `surfaces_stderr_write_failures`                           |
+| Dimension                                                            | Status | Evidence                                                   |
+| -------------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
+| Last-entry precedence across aliases; subsection case                | T      | `git::config::tests`                                       |
+| Bare, empty, multiline, and non-UTF-8 configuration values           | T      | `git::config::tests`                                       |
+| Boolean keywords, numeric bases, scale suffixes, signed bounds       | T      | `env::tests`, `tests/it/config.rs`                         |
+| Invalid `log.mailmap` values exit 128                                | T      | `reads_real_config_and_rejects_invalid_boolean`            |
+| Invalid `core.abbrev` values preserve Git’s fatal error and exit 128 | T      | `invalid_core_abbrev_is_reported_by_git`                   |
+| Explicit argv, allowlisted environment, null stdin                   | T      | `config_subprocess_has_explicit_arguments_and_environment` |
+| Raw stderr, nonzero status, signal status, and spawn failures        | T      | `tests/it/config.rs`                                       |
+| Large stderr does not block stdout                                   | T      | `drains_large_stderr_without_deadlocking`                  |
+| Git failures take precedence over malformed protocol output          | T      | `prioritizes_git_failures_over_malformed_stdout`           |
+| Help and version avoid spawning Git                                  | T      | `informational_options_do_not_start_git`                   |
+| Stderr write and flush failures remain errors                        | T      | `surfaces_stderr_write_failures`                           |
 
 ## Record stream
 
@@ -120,18 +121,18 @@ behavior entries above stay marked as gaps until ghist itself is tested.
 The Unicode-width comparison covers every scalar value except NUL, LF, CR, and
 TAB, which have separate message/framing cases.
 
-| Dimension                                                                      | Status | Evidence                                                                   |
-| ------------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------------- |
-| Full hashes and object format labels; detached HEAD                            | T      | `full_hashes_conditional_headers_and_dates_in_both_formats`                |
-| Conditional committer identity and dates; same epoch with different timezones  | T      | `render::header::tests`, `tests/it/headers.rs`                             |
-| Mailmap affects identity comparison and honors `log.mailmap=false`             | T      | `mailmap_controls_identity_comparison_and_full_decorations`                |
-| Decoration order, shortened refs, commas and non-UTF-8 ref bytes               | T      | `merge_abbreviations_and_decoration_kinds`, `tests/it/headers.rs`          |
-| Merge parents show at least seven digits or their longer unique prefix         | T      | `merge_abbreviations_and_decoration_kinds`                                 |
-| Empty messages, blank lines, trailing whitespace, tab stops and Unicode widths | T      | `render::message::tests`, `message_bytes_and_encoding_match_git_fuller`    |
-| Invalid UTF-8 and control bytes stop tab expansion                             | T      | `tabs_use_message_columns_and_stop_at_invalid_text`, `tests/it/headers.rs` |
-| Git output encodings and NUL-truncated messages                                | T      | `message_bytes_and_encoding_match_git_fuller`                              |
-| Commit separators and every partial output write                               | T      | `separation_empty_messages_and_every_partial_write`                        |
-| Unicode character widths and tab stops across the scalar range                 | T      | `unicode_tab_stops_match_git_across_scalar_values`                         |
+| Dimension                                                                      | Status | Evidence                                                                                      |
+| ------------------------------------------------------------------------------ | ------ | --------------------------------------------------------------------------------------------- |
+| Full hashes and object format labels; detached HEAD                            | T      | `full_hashes_conditional_headers_and_dates_in_both_formats`                                   |
+| Conditional committer identity and dates; same epoch with different timezones  | T      | `render::header::tests`, `tests/it/headers.rs`                                                |
+| Mailmap affects identity comparison and honors `log.mailmap=false`             | T      | `mailmap_controls_identity_comparison_and_full_decorations`                                   |
+| Decoration order, shortened refs, commas and non-UTF-8 ref bytes               | T      | `merge_abbreviations_and_decoration_kinds`, `tests/it/headers.rs`                             |
+| Merge parents show at least seven digits or their longer Git abbreviation      | T      | `merge_abbreviations_and_decoration_kinds`, `core_abbrev_controls_header_dimming_and_patches` |
+| Empty messages, blank lines, trailing whitespace, tab stops and Unicode widths | T      | `render::message::tests`, `message_bytes_and_encoding_match_git_fuller`                       |
+| Invalid UTF-8 and control bytes stop tab expansion                             | T      | `tabs_use_message_columns_and_stop_at_invalid_text`, `tests/it/headers.rs`                    |
+| Git output encodings and NUL-truncated messages                                | T      | `message_bytes_and_encoding_match_git_fuller`                                                 |
+| Commit separators and every partial output write                               | T      | `separation_empty_messages_and_every_partial_write`                                           |
+| Unicode character widths and tab stops across the scalar range                 | T      | `unicode_tab_stops_match_git_across_scalar_values`                                            |
 
 ## Differential and generated histories
 
@@ -158,12 +159,13 @@ TAB, which have separate message/framing cases.
 
 ## Header colors and hash uniqueness
 
-| Case                                                                      | Status | Coverage                                                                  |
-| ------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------- |
-| Configured commit colors agree with Git's parser                          | T      | Named, indexed, RGB and attribute comparisons                             |
-| Hash dimming starts at the shortest unique prefix among all objects       | T      | Independent sorted-neighbor check with 3,000 blobs in both object formats |
-| HEAD, branches, remotes, tags, stash, grafted and replaced decorations    | T      | Exact escape-sequence goldens                                             |
-| Merge parent prefixes, full-length uniqueness and empty configured colors | T      | Header goldens and stripped-color equality                                |
+| Case                                                                                      | Status | Coverage                                                                  |
+| ----------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------- |
+| Configured commit colors agree with Git's parser                                          | T      | Named, indexed, RGB and attribute comparisons                             |
+| With `core.abbrev=4`, hash dimming starts at the shortest unique prefix among all objects | T      | Independent sorted-neighbor check with 3,000 blobs in both object formats |
+| Unset, numeric, `auto`, `no`, and empty `core.abbrev` control dimming and patch hashes    | T      | `core_abbrev_controls_header_dimming_and_patches`, in both object formats |
+| HEAD, branches, remotes, tags, stash, grafted and replaced decorations                    | T      | Exact escape-sequence goldens                                             |
+| Merge parent prefixes, full-length uniqueness and empty configured colors                 | T      | Header goldens and stripped-color equality                                |
 
 ## Graph layout
 

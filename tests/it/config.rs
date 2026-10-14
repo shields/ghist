@@ -87,6 +87,24 @@ mod tests {
     }
 
     #[test]
+    fn invalid_core_abbrev_is_reported_by_git() {
+        for format in ["sha1", "sha256"] {
+            let repo = TestRepo::new(format).unwrap();
+            let mut history = History::default();
+            history.push(Commit::default());
+            repo.import(&history).unwrap();
+            for value in ["3", "invalid"] {
+                repo.git(["config", "core.abbrev", value]).unwrap();
+                let (exit, out, err) = capture(&repo.context(&[]));
+                assert_eq!(exit, Exit::Code(128), "{format} {value}: {err:?}");
+                assert_eq!(out, b"");
+                assert!(err.windows(6).any(|part| part == b"fatal:"), "{err:?}");
+                assert!(err.windows(11).any(|part| part == b"core.abbrev"));
+            }
+        }
+    }
+
+    #[test]
     fn config_subprocess_has_explicit_arguments_and_environment() {
         let repo = TestRepo::new("sha1").unwrap();
         let ctx = repo

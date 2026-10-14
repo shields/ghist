@@ -114,7 +114,6 @@ fn compare_mode(repo: &TestRepo, args: &[&str], columns: usize, patch: bool) -> 
             "--max-count=1",
             "--format=",
             "--no-diff-merges",
-            "--abbrev=4",
             "--no-ext-diff",
             "--no-show-signature",
             "--no-follow",
