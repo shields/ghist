@@ -84,8 +84,15 @@ impl Process {
 
     pub fn stop(mut self) -> Result<Vec<u8>, Error> {
         let _ = self.child.0.kill();
-        self.child.0.wait()?;
-        joined(self.stderr.join())
+        let status = self.child.0.wait()?;
+        let stderr = joined(self.stderr.join())?;
+        if status.code().is_some_and(|code| code != 0) {
+            return Err(Error::Git {
+                exit: exit(status),
+                stderr,
+            });
+        }
+        Ok(stderr)
     }
 
     pub fn finish(mut self) -> Result<Vec<u8>, Error> {

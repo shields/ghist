@@ -203,10 +203,10 @@ The pager is allowed to complete its cleanup.
 
 Output failures stop both the history walker and any pending binary-size lookup
 before waiting for their exit. Broken stdout or pager pipes are quiet successes,
-unless the pager exits nonzero. A broken cat-file input pipe remains an error:
-it is a failed backend request. Other I/O and protocol errors exit 1, usage
-errors exit 2, invalid configuration exits 128, and Git and pager failures
-retain their status.
+unless the pager exits nonzero or a stopped Git process had already failed on
+its own. A broken cat-file input pipe remains an error: it is a failed backend
+request. Other I/O and protocol errors exit 1, usage errors exit 2, invalid
+configuration exits 128, and Git and pager failures retain their status.
 
 ## Release verification
 

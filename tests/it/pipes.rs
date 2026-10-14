@@ -76,6 +76,31 @@ mod tests {
     }
 
     #[test]
+    fn a_git_failure_outranks_a_closed_output() {
+        struct Closed;
+        impl Write for Closed {
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                Err(io::ErrorKind::BrokenPipe.into())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let repo = TestRepo::new("sha1").unwrap();
+        let ctx = repo.fake_git(br#"if test "$2" = config; then printf 'config warning\n' >&2; exit 0; fi
+printf '\036\037ghist\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\000aaaa\000\000\000A\000a\000date\000A\000a\000date\000\000message\000\n'
+printf 'fatal: unable to read tree\n' >&2
+exit 128
+"#).unwrap();
+        for _ in 0..4 {
+            let mut err = Vec::new();
+            assert_eq!(ghist::run(&ctx, &mut Closed, &mut err), Exit::Code(128));
+            assert_eq!(err, b"config warning\nfatal: unable to read tree\n");
+        }
+        Closed.flush().unwrap();
+    }
+
+    #[test]
     fn a_closed_output_stops_an_unbounded_git_stream() {
         struct Closed;
         impl Write for Closed {

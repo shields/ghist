@@ -220,6 +220,7 @@ TAB, which have separate message/framing cases.
 | Nonzero and missing pagers preserve their exit status                                | T      | `tests/it/paging.rs`                                                   |
 | Closed stdout and early successful pager exit are quiet successes                    | T      | `tests/it/pipes.rs`, real binary pipes                                 |
 | Nonzero pager exit outranks a broken output pipe                                     | T      | `early_pager_exit_is_quiet_but_preserves_nonzero_status`               |
+| A Git process that already failed outranks a broken output pipe                      | T      | `a_git_failure_outranks_a_closed_output`                               |
 | A nonzero pager exit after a broken output pipe keeps Git’s warnings                 | T      | `early_pager_failure_keeps_git_warnings`                               |
 | Closed output stops an unbounded Git stream                                          | T      | `a_closed_output_stops_an_unbounded_git_stream`                        |
 | INT, QUIT, TERM and HUP interrupt Git reads and waits, reap Git, and re-raise        | T      | `tests/it/signals.rs`, real binary statuses                            |
