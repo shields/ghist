@@ -50,6 +50,8 @@ The process sequence is:
    than failing, so its stderr is dropped. A failing step keeps its status and
    stderr. A step that succeeds drops its stderr, since `git log` repeats its
    warnings; tracing the pre-pass therefore needs a `GIT_TRACE` file target.
+   Every step runs with `-c core.disambiguate=committish`, because `git log`
+   resolves an ambiguous short object ID in a revision to the commit.
 3. The main `git log` streams records and requested diffs.
 4. Binary stat entries lazily start one
    `git cat-file --batch-check=%(objectsize)` child with piped stdin.

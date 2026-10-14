@@ -23,7 +23,8 @@ mod tests {
     use ghist::Exit;
 
     fn run(repo: &TestRepo, script: &[u8], args: &[&str]) -> (Exit, Vec<u8>) {
-        let mut ctx = repo.fake_git(script).unwrap();
+        let script = [b"test \"$2\" != -c || shift 2\n".as_slice(), script].concat();
+        let mut ctx = repo.fake_git(&script).unwrap();
         ctx.args = args.iter().map(|arg| (*arg).into()).collect();
         let mut out = Vec::new();
         let mut err = Vec::new();
@@ -181,6 +182,46 @@ esac
                 vec!["b1^@"],
                 vec!["b0~1^!"],
             ] {
+                oracle::fuller(&repo, &args).unwrap();
+            }
+        }
+    }
+
+    #[cfg(not(coverage_nightly))]
+    #[test]
+    fn ambiguous_short_ids_resolve_to_commits_as_in_git() {
+        for (format, blob) in [("sha1", "24176\n"), ("sha256", "136113\n")] {
+            let repo = TestRepo::new(format).unwrap();
+            let mut history = History::default();
+            let mut parent = history.push(Commit::default());
+            for _ in 1..4 {
+                parent = history.push(Commit {
+                    parents: vec![parent],
+                    ..Commit::default()
+                });
+            }
+            repo.import(&history).unwrap();
+            repo.git_input(["hash-object", "-w", "--stdin"], blob.as_bytes())
+                .unwrap();
+            let commit = repo.git(["rev-parse", "HEAD~2"]).unwrap();
+            let prefix = String::from_utf8_lossy(&commit[..4]).into_owned();
+            let objects = repo
+                .git(["rev-parse", &format!("--disambiguate={prefix}")])
+                .unwrap();
+            assert_eq!(
+                objects
+                    .split(|&byte| byte == b'\n')
+                    .filter(|line| !line.is_empty())
+                    .count(),
+                2,
+                "{format}: the fixture blob must share the prefix {prefix}"
+            );
+            for args in [
+                vec!["HEAD".to_owned(), format!("^{prefix}")],
+                vec!["HEAD".to_owned(), format!("^{prefix}"), "--".to_owned()],
+                vec![format!("{prefix}..HEAD")],
+            ] {
+                let args: Vec<_> = args.iter().map(String::as_str).collect();
                 oracle::fuller(&repo, &args).unwrap();
             }
         }

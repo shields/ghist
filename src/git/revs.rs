@@ -96,8 +96,15 @@ fn has_negative(bytes: &[u8]) -> Result<bool, Error> {
     Ok(negative)
 }
 
-fn expansion(ctx: &Context, revisions: &[OsString], paths: &[OsString]) -> Command {
+fn prepass(ctx: &Context) -> Command {
     let mut command = command(ctx);
+    // git log resolves an ambiguous short object ID to the commit; these must agree.
+    command.args(["-c", "core.disambiguate=committish"]);
+    command
+}
+
+fn expansion(ctx: &Context, revisions: &[OsString], paths: &[OsString]) -> Command {
+    let mut command = prepass(ctx);
     command
         .args(["rev-parse", "--revs-only"])
         .args(revisions)
@@ -107,7 +114,7 @@ fn expansion(ctx: &Context, revisions: &[OsString], paths: &[OsString]) -> Comma
 }
 
 fn probe(ctx: &Context, operand: &OsStr) -> Command {
-    let mut command = command(ctx);
+    let mut command = prepass(ctx);
     command
         .args(["rev-list", "--no-walk", "--max-count=0", "--end-of-options"])
         .arg(operand);
@@ -115,7 +122,7 @@ fn probe(ctx: &Context, operand: &OsStr) -> Command {
 }
 
 fn walk(ctx: &Context, args: &LogArgs) -> Command {
-    let mut command = command(ctx);
+    let mut command = prepass(ctx);
     command
         .args(["rev-list", "--boundary", "--parents", "--end-of-options"])
         .args(&args.before);
@@ -207,6 +214,8 @@ mod tests {
             words(&expansion(&ctx, &revisions, &paths)),
             [
                 "--no-pager",
+                "-c",
+                "core.disambiguate=committish",
                 "rev-parse",
                 "--revs-only",
                 "a..b",
@@ -218,12 +227,23 @@ mod tests {
         );
         assert_eq!(
             words(&expansion(&ctx, &revisions, &[])),
-            ["--no-pager", "rev-parse", "--revs-only", "a..b", "^c", "--"]
+            [
+                "--no-pager",
+                "-c",
+                "core.disambiguate=committish",
+                "rev-parse",
+                "--revs-only",
+                "a..b",
+                "^c",
+                "--"
+            ]
         );
         assert_eq!(
             words(&probe(&ctx, OsStr::new("-p"))),
             [
                 "--no-pager",
+                "-c",
+                "core.disambiguate=committish",
                 "rev-list",
                 "--no-walk",
                 "--max-count=0",
@@ -239,6 +259,8 @@ mod tests {
             };
             let mut expected = vec![
                 "--no-pager",
+                "-c",
+                "core.disambiguate=committish",
                 "rev-list",
                 "--boundary",
                 "--parents",

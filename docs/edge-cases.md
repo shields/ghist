@@ -201,6 +201,7 @@ TAB, which have separate message/framing cases.
 | A positive revision before paths without `--` skips the boundary walk            | T      | Fake-Git command counts                              |
 | Only operands rev-parse rejects are probed, so no range is walked twice          | T      | Fake-Git command counts                              |
 | A bare `..` is the parent directory, as in Git, not the range `HEAD..HEAD`       | T      | `a_bare_parent_directory_is_a_path_as_in_git`        |
+| A short ID shared by a commit and a blob resolves to the commit, as in Git       | T      | `ambiguous_short_ids_resolve_to_commits_as_in_git`   |
 | Path-limited boundaries follow Git’s rewritten parents                           | T      | `path_limited_ranges_hide_rewritten_parents`         |
 | Ordinary revisions skip the pre-pass; failing steps keep Git’s status and stderr | T      | Fake-Git command counts and failure cases            |
 | A rejected expansion drops its stderr; the walk or `git log` reports Git errors  | T      | Fake-Git failure cases                               |
