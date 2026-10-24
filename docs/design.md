@@ -149,8 +149,11 @@ For each commit:
    family, origin, and opening record when the node is in column zero or the
    node lane’s family opened it. Place other new parents in the nearest
    available lane at or to the right of the node.
-4. Draw the fan-out through the node’s dot, then emit pull and optional
-   compaction rows. Fan-out before pull distinguishes simultaneous attachments.
+4. Draw every parent connection through the node’s dot, using the parent’s
+   incoming column when it already has a lane. A pull then moves that parent
+   lane into the node column with two bends. Pull and compaction rows contain no
+   branching junctions: connections belong on the commit row, and later rows
+   only move lanes.
 5. Move at most one lane: the rightmost occupied lane into the first earlier
    hole that has been empty for 20 commits. A new lane usually reuses a hole
    sooner, so waiting saves the jog, at the cost of width; the jog can follow
@@ -162,8 +165,8 @@ measurements behind these rules.
 Cells carry directional arms and a color. A `│` between horizontal segments is a
 crossing with the vertical on top; `┼` is a junction. Horizontal spans use the
 far attachment’s color, and the corner of a lane that ends in a tap uses the
-first parent’s lane color; pulls and compaction use the moving lane’s color.
-Adjacent equal colors share an SGR span, reset before the text.
+first parent’s lane color; lane moves use the moving lane’s color. Adjacent
+equal colors share an SGR span, reset before the text.
 
 The graph sees Git’s rewritten `%P` minus the hidden boundary set. Header
 `Merge:` lines retain all parents. Palette indices use `usize`, so configured

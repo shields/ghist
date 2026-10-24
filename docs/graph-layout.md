@@ -40,6 +40,11 @@ existing parent lane, a join, or a lane moving between columns. A connector
 crosses every occupied column strictly between its ends, drawn as `│` between
 `─` segments. Corners (`╭╮╯╰`) are bends.
 
+Every parent connection leaves the commit’s dot on the commit row. When the
+parent already has a lane, the connection reaches that lane’s current column.
+Any move to a different column follows as a separate row of bends. A row without
+a commit has no branching junctions.
+
 The costs are crossings, bends, width, and rows. Width is paid on every text
 line, because the text column is `2 × width + 1`, so the mean matters more than
 the maximum. The lower bound on width at a row is the number of lanes alive
@@ -104,7 +109,8 @@ only on the stream order and on the awaited lane’s color surviving a join.
 **Merge-tap.** A merge outside column zero whose first parent is already awaited
 on its right taps that lane instead of pulling it in, if another parent opens a
 new lane. The new lane then starts in the node column, and the fan-out is a
-single junction (`├─┤`) instead of a crossing, a pull, and usually a later jog.
+single connection (`●─┤`) instead of a crossing, a pull, and usually a later
+jog.
 
 **Sibling joins in a merge train keep the outer column.** Each lane records a
 family, shared along the lanes that continue one line of history, and the family
@@ -112,10 +118,11 @@ of the lane that opened it. When a single-parent commit joins two lanes opened
 by the same family, keeping the outer column instead of the inner one is a bet:
 the freed inner column sits next to their opener, so the opener’s next branch
 can start there, inside the long-lived lane, without crossing it. The commit
-pulls a lane on its left into its own column, or taps a lane on its right, both
-drawn `╰─┤`. A bet that no branch takes leaves a hole that compaction later
-fills with a jog, so the outer column is kept only when the past says the bet
-will pay:
+pulls a lane on its left into its own column, or taps a lane on its right. A
+pull connects at the dot (`├─●`) and then moves the lane (`╰─╮`); a tap connects
+to the surviving lane (`●─┤`). A bet that no branch takes leaves a hole that
+compaction later fills with a jog, so the outer column is kept only when the
+past says the bet will pay:
 
 - the node lane’s family started after the parent lane’s, so a long-lived branch
   that rejoins younger lanes, as in git-flow, does not walk right one column per
@@ -153,12 +160,12 @@ first-fit         ghist
 ●─╮               ●─╮
 │ ●               │ ●
 ●─│─╮             ●─│─╮
-│ ├─●             │ │ ●
-│ │               │ ╰─┤
+│ ├─●             │ ├─●
+│ │               │ ╰─╮
 ●─│─╮             ●─╮ │
 │ ├─●             │ ●─┤
-●─│─╮             ●─╮ │
-├─╯ │             ├─│─╯
+●─┼─╮             ●─┬─┤
+╭─╯ │             ╭─│─╯
 │ ╭─╯             ├─●
 ├─●               ●
 ●
@@ -171,6 +178,10 @@ precedes a pull row: the last merge must open its branch before it can pull
 no layout removes the last.
 
 ## Measurements
+
+These measurements predate separating parent connections from lane moves. The
+lane placement policies remain the same, but a pull now draws its parent
+connection on the commit row and two bends on the following row.
 
 Measurements on October 9, 2026 used an Apple M1 Max, macOS 27.0.1, Rust 1.99.0,
 and Git 2.56.0, on 23 local repositories chosen for their merges. Each figure

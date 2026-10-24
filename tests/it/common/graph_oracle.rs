@@ -27,7 +27,6 @@ const R: u8 = 8;
 pub fn parse(bytes: &[u8]) -> Result<Edges, String> {
     let bytes = ansi::strip(bytes);
     let mut column = usize::MAX;
-    let mut node_column = 0;
     let mut active = BTreeMap::<usize, Origins>::new();
     let mut edges = Edges::new();
     for line in bytes.split_inclusive(|&byte| byte == b'\n') {
@@ -46,7 +45,6 @@ pub fn parse(bytes: &[u8]) -> Result<Edges, String> {
             .or_else(|| rest.strip_prefix(b"sha256 "));
         let commit = if let (Some(node), Some(hash)) = (node, hash) {
             column = prefix.len();
-            node_column = node;
             Some((
                 node,
                 hash.split(|&byte| byte == b' ' || byte == b'\n')
@@ -61,7 +59,7 @@ pub fn parse(bytes: &[u8]) -> Result<Edges, String> {
         if column == usize::MAX {
             return Err("graph content before the first node".into());
         }
-        active = row(&prefix, node_column, commit.as_ref(), &active, &mut edges)?;
+        active = row(&prefix, commit.as_ref(), &active, &mut edges)?;
     }
     if !active.is_empty() {
         let lanes: Vec<_> = active
@@ -139,11 +137,13 @@ fn ports(glyphs: &[char]) -> Vec<u8> {
 
 fn row(
     glyphs: &[char],
-    node_column: usize,
     commit: Option<&(usize, Vec<u8>)>,
     active: &BTreeMap<usize, Origins>,
     edges: &mut Edges,
 ) -> Result<BTreeMap<usize, Origins>, String> {
+    if commit.is_none() && glyphs.iter().any(|&glyph| arms(glyph).count_ones() > 2) {
+        return Err(format!("junction without a commit: {glyphs:?}"));
+    }
     let ports = ports(glyphs);
     let mut next = BTreeMap::new();
     for (index, glyph) in glyphs.iter().enumerate() {
@@ -178,7 +178,8 @@ fn row(
         for index in start..=end {
             if glyphs.get(index) != Some(&'│')
                 && ports.get(index).copied().unwrap_or_default() & U != 0
-                && (index == node_column || ports.get(index).copied().unwrap_or_default() & D == 0)
+                && (commit.is_some_and(|(node, _)| *node == index)
+                    || ports.get(index).copied().unwrap_or_default() & D == 0)
             {
                 if let Some((_, hash)) = commit.filter(|(node, _)| *node == index) {
                     origins.insert(hash.clone());
@@ -247,8 +248,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn junctions_require_a_commit_on_the_same_row() {
+        for (node, junction) in [
+            ("● │", "├─╯"),
+            ("│ │ ●", "│ ╰─┤"),
+            ("│ │ │ ●", "│ ╰─│─┤"),
+            ("●─╮ │", "├─│─╯"),
+        ] {
+            let output = format!("{node}  sha1 a\n{junction}  Author: A\n");
+            assert!(
+                parse(output.as_bytes())
+                    .unwrap_err()
+                    .starts_with("junction without a commit:"),
+                "{output}"
+            );
+        }
+    }
+
+    #[test]
     fn separates_crossings_from_junctions() {
-        let output = "●─┬─╮  sha1 a\n│ │ │  Merge: b c d\n│ │ │\n●─│─│─╮  sha1 b\n├─│─╯ │  Merge: d e\n│ │   │\n├─●───┤  sha1 c\n│ │   │  Merge: d e f\n│ │   │\n├─│───●  sha1 e\n│ │\n├─●  sha1 f\n│\n●  sha1 d\n\n";
+        let output = "●─┬─╮  sha1 a\n│ │ │  Merge: b c d\n│ │ │\n●─│─┼─╮  sha1 b\n╭─│─╯ │  Merge: d e\n│ │   │\n├─●───┤  sha1 c\n│ │   │  Merge: d e f\n│ │   │\n├─│───●  sha1 e\n│ │\n├─●  sha1 f\n│\n●  sha1 d\n\n";
         let expected: Edges = [
             ("a", vec!["b", "c", "d"]),
             ("b", vec!["d", "e"]),
@@ -270,7 +289,7 @@ mod tests {
         .collect();
         assert_eq!(parse(output.as_bytes()).unwrap(), expected);
         assert!(
-            parse("●    sha1 a\n├─   Author: A\n".as_bytes())
+            parse("●─   sha1 a\n".as_bytes())
                 .unwrap_err()
                 .contains("unconnected right")
         );

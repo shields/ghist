@@ -173,7 +173,8 @@ TAB, which have separate message/framing cases.
 | -------------------------------------------------------------------------------- | ------ | ---------------------------------------------------- |
 | Linear ancestry, multiple roots, and reused lane holes                           | T      | Pure layout goldens                                  |
 | Merge fan-out, existing parents, pulls, and vertical crossings                   | T      | Pure layout goldens                                  |
-| Parent connections intersect the node’s dot; pulls follow on a separate row      | T      | Layout, prefix, and renderer goldens                 |
+| Parent connections intersect the dot; pulls in either direction only bend lanes  | T      | Layout goldens and glyph-to-edge oracle              |
+| No branching junction appears on a row without a commit                          | T      | Oracle rejects low joins; exhaustive/generated DAGs  |
 | Merges tap first parents on the right only if opening a lane outside column zero | T      | Pure layout goldens                                  |
 | Single-parent joins in a merge train keep the outer column                       | T      | Pure layout goldens                                  |
 | Older siblings rejoining lanes opened after them keep the inner column           | T      | Pure layout goldens                                  |
