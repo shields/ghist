@@ -4,7 +4,7 @@
   "workspaces": {
     "": {
       "devDependencies": {
-        "prettier": "3.9.9",
+        "prettier": "3.9.10",
         "prettier-plugin-toml": "3.0.2",
       },
     },
@@ -14,7 +14,7 @@
 
     "@tombi-toml/wasm-lib": ["@tombi-toml/wasm-lib@1.7.2", "", {}, "sha512-C+XChvcJf797btQPbtDLldu10qp06jZcMqk9KYG8P8HSWDx0Y3gRumSpq2gO7l8G1TeAsVHBLnxtR+0DBgt2Mw=="],
 
-    "prettier": ["prettier@3.9.9", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg=="],
+    "prettier": ["prettier@3.9.10", "", { "bin": { "prettier": "bin/prettier.cjs" } }, "sha512-skGHTH1Yb9QvaTC4hWnRTzEYtCpApF0UMBPz+t/0ZPzP8ihefo/btKd+QA7pUE0fEwA1SbS/NmhyEcstdXOIdA=="],
 
     "prettier-plugin-toml": ["prettier-plugin-toml@3.0.2", "", { "dependencies": { "@dual-bundle/import-meta-resolve": "^4.2.1", "@tombi-toml/wasm-lib": "^1.5.5", "smol-toml": "^1.8.0" }, "peerDependencies": { "prettier": "^3.0.3" } }, "sha512-1t1FOSGaXNy7xN6ffE7ND71VqsnbUtanGEKAD1hTwFDrGIH1cwZ0KH6lMThDVItjdV/UUJWqD3f1+16AHG3eUQ=="],
 
