@@ -72,8 +72,8 @@ git --no-pager log --no-diff-merges --topo-order --parents --decorate=full
 
 Git applies `core.abbrev` to `%h`, `%p`, and patch `index` lines. When unset or
 `auto`, Git chooses the abbreviation length; `no` gives full hashes. The
-renderer dims the part after Git’s abbreviation and shows merge parents with at
-least seven digits.
+renderer shows full commit and merge-parent hashes, dimming the part after Git’s
+abbreviation.
 
 When `log.mailmap=false`, lowercase `%an/%ae/%cn/%ce` replace the mailmapped
 identity placeholders. No `--root` is added, so `log.showRoot` applies.

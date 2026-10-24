@@ -211,12 +211,16 @@ mod tests {
                 let lines: Vec<_> = colored.split(|&byte| byte == b'\n').collect();
                 let plain = ansi::strip(&colored);
                 assert!(plain.starts_with(&[format.as_bytes(), b" ", fields[0]].concat()));
+                assert_eq!(
+                    ansi::strip(lines[1]),
+                    [b"Merge: ".as_slice(), fields[2]].concat()
+                );
                 for (line, short, display) in std::iter::once((lines[0], fields[1], fields[0]))
                     .chain(
                         fields[2]
                             .split(|&byte| byte == b' ')
                             .zip(fields[3].split(|&byte| byte == b' '))
-                            .map(|(full, short)| (lines[1], short, &full[..short.len().max(7)])),
+                            .map(|(full, short)| (lines[1], short, full)),
                     )
                 {
                     let expected = if short.len() == display.len() {

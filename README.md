@@ -39,7 +39,7 @@ There are no display flags.
 
 ```text
 ●    sha1 3f2a9c1e5b7d9f0a2c4e6b8d0f1a3c5e7b9d1f3a (HEAD -> main)
-├─╮  Merge: a1b2c3d f4e5d6c
+├─╮  Merge: a1b2c3d4e5f6789012345678901234567890abcd f4e5d6c7b8a90123456789012345678901234567
 │ │  Author:     Grace Hopper <grace@example.com>
 │ │  Commit:     Ada Lovelace <ada@example.com>
 │ │  AuthorDate: 2026-10-04 09:12:44 -0400
@@ -50,8 +50,8 @@ There are no display flags.
 
 - Full hashes are labeled `sha1` or `sha256`. The part after Git’s abbreviation
   is dimmed. Abbreviations follow `core.abbrev`, including Git’s automatic
-  default and `no` for full hashes. Merge-parent hashes extend to at least seven
-  digits, with the same dimming.
+  default and `no` for full hashes. Merge parents also show full hashes with the
+  same dimming.
 - `Commit:` appears only when the committer’s identity differs from the author’s
   after mailmap. `CommitDate:` appears only when the date or time zone differs.
   Dates retain each identity’s own time zone.

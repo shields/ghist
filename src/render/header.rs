@@ -39,14 +39,10 @@ pub fn lines(record: &Record, colors: Option<&Palette>) -> Vec<Vec<u8>> {
         let mut merge = b"Merge:".to_vec();
         for parent in &record.parents {
             merge.push(b' ');
-            let display = parent
-                .hash
-                .get(..parent.unique.max(7))
-                .unwrap_or(&parent.hash);
             hash(
                 &mut merge,
                 b"",
-                display,
+                &parent.hash,
                 parent.unique,
                 colors.map(|colors| &colors.commit),
             );
@@ -189,7 +185,7 @@ pub mod tests {
         }
         assert_eq!(
             lines(&record, Some(&palette))[1],
-            b"Merge: \x1b[33m0123\x1b[22;2m456\x1b[m \x1b[33m01234567\x1b[m"
+            b"Merge: \x1b[33m0123\x1b[22;2m456789abcdef0123456789abcdef01234567\x1b[m \x1b[33m01234567\x1b[22;2m89abcdef0123456789abcdef01234567\x1b[m"
         );
         assert_eq!(decorations(b"HEAD, tag: refs/tags/v1, refs/remotes/origin/main, refs/stash, grafted, replaced, refs/custom/x, refs/tags/v2", Some(&palette)), b"\x1b[1;36mHEAD\x1b[m\x1b[33m, \x1b[m\x1b[1;33mtag: v1\x1b[m\x1b[33m, \x1b[m\x1b[1;31morigin/main\x1b[m\x1b[33m, \x1b[m\x1b[1;35mrefs/stash\x1b[m\x1b[33m, \x1b[m\x1b[1;34mgrafted\x1b[m\x1b[33m, \x1b[m\x1b[1;34mreplaced\x1b[m\x1b[33m, \x1b[m\x1b[33mrefs/custom/x\x1b[m\x1b[33m, \x1b[m\x1b[1;33mv2\x1b[m");
         let palette = Palette::read(
@@ -264,7 +260,7 @@ pub mod tests {
     }
 
     #[test]
-    fn merge_abbreviations_and_decoration_kinds() {
+    fn merge_full_hashes_and_decoration_kinds() {
         let mut record = record();
         for unique in [4, 8] {
             record.parents.push(crate::git::log::Parent {
@@ -273,7 +269,10 @@ pub mod tests {
                 unique,
             });
         }
-        assert_eq!(lines(&record, None)[1], b"Merge: 0123456 01234567");
+        assert_eq!(
+            lines(&record, None)[1],
+            b"Merge: 0123456789abcdef0123456789abcdef01234567 0123456789abcdef0123456789abcdef01234567"
+        );
         assert_eq!(decorations(b"HEAD -> refs/heads/main, tag: refs/tags/v1, refs/remotes/origin/main, refs/heads/feature, refs/stash, grafted, replaced, refs/custom/a", None), b"HEAD -> main, tag: v1, origin/main, feature, refs/stash, grafted, replaced, refs/custom/a");
         assert_eq!(
             decorations(b"HEAD, tag: refs/tags/\xff", None),

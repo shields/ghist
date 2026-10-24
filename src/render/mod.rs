@@ -253,7 +253,7 @@ mod tests {
             out,
             concat!(
                 "●    sha1 0123456789abcdef0123456789abcdef01234567 (HEAD -> main)\n",
-                "├─╮  Merge: 1111111 2222222\n",
+                "├─╮  Merge: 1111111111111111111111111111111111111111 2222222222222222222222222222222222222222\n",
                 "│ │  Author:     Grace <grace@example.com>\n",
                 "│ │  Commit:     Ada <ada@example.com>\n",
                 "│ │  AuthorDate: 2026-10-05 09:12:00 -0400\n",

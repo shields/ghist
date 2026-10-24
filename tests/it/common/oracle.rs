@@ -24,6 +24,7 @@ pub fn fuller(repo: &TestRepo, args: &[&str]) -> std::io::Result<Vec<u8>> {
         "--topo-order",
         "--parents",
         "--no-abbrev-commit",
+        "--no-abbrev",
         "--no-decorate",
         "--no-patch",
         "--no-show-signature",
