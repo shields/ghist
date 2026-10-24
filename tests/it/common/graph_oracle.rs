@@ -61,7 +61,7 @@ pub fn parse(bytes: &[u8]) -> Result<Edges, String> {
         if column == usize::MAX {
             return Err("graph content before the first node".into());
         }
-        active = row(&prefix, node_column, commit, &active, &mut edges)?;
+        active = row(&prefix, node_column, commit.as_ref(), &active, &mut edges)?;
     }
     if !active.is_empty() {
         let lanes: Vec<_> = active
@@ -81,7 +81,7 @@ pub fn parse(bytes: &[u8]) -> Result<Edges, String> {
 
 const fn arms(glyph: char) -> u8 {
     match glyph {
-        '│' => U | D,
+        '│' | '●' => U | D,
         '─' => L | R,
         '╭' => D | R,
         '╮' => D | L,
@@ -96,15 +96,30 @@ const fn arms(glyph: char) -> u8 {
     }
 }
 
-fn row(
-    glyphs: &[char],
-    node_column: usize,
-    commit: Option<(usize, Vec<u8>)>,
-    active: &BTreeMap<usize, Origins>,
-    edges: &mut Edges,
-) -> Result<BTreeMap<usize, Origins>, String> {
+fn ports(glyphs: &[char]) -> Vec<u8> {
     let mut ports: Vec<_> = glyphs.iter().copied().map(arms).collect();
     for (index, glyph) in glyphs.iter().enumerate() {
+        if *glyph == '●' {
+            let horizontal = if index
+                .checked_sub(1)
+                .and_then(|index| glyphs.get(index))
+                .is_some_and(|&glyph| arms(glyph) & R != 0)
+            {
+                L
+            } else {
+                0
+            } | if glyphs
+                .get(index + 1)
+                .is_some_and(|&glyph| arms(glyph) & L != 0)
+            {
+                R
+            } else {
+                0
+            };
+            *ports
+                .get_mut(index)
+                .expect("ports and glyphs have equal lengths") |= horizontal;
+        }
         if *glyph == '│'
             && index
                 .checked_sub(1)
@@ -119,6 +134,17 @@ fn row(
                 .expect("ports and glyphs have equal lengths") |= L | R;
         }
     }
+    ports
+}
+
+fn row(
+    glyphs: &[char],
+    node_column: usize,
+    commit: Option<&(usize, Vec<u8>)>,
+    active: &BTreeMap<usize, Origins>,
+    edges: &mut Edges,
+) -> Result<BTreeMap<usize, Origins>, String> {
+    let ports = ports(glyphs);
     let mut next = BTreeMap::new();
     for (index, glyph) in glyphs.iter().enumerate() {
         if arms(*glyph) & (U | D) == U | D {
@@ -126,11 +152,11 @@ fn row(
         }
     }
     if let Some((index, hash)) = commit {
-        for child in active.get(&index).into_iter().flatten() {
+        for child in active.get(index).into_iter().flatten() {
             edges.entry(child.clone()).or_default().insert(hash.clone());
         }
         edges.entry(hash.clone()).or_default();
-        next.insert(index, BTreeSet::from([hash]));
+        next.insert(*index, BTreeSet::from([hash.clone()]));
     }
     let mut start = 0;
     while start < ports.len() {
@@ -154,7 +180,11 @@ fn row(
                 && ports.get(index).copied().unwrap_or_default() & U != 0
                 && (index == node_column || ports.get(index).copied().unwrap_or_default() & D == 0)
             {
-                origins.extend(active.get(&index).into_iter().flatten().cloned());
+                if let Some((_, hash)) = commit.filter(|(node, _)| *node == index) {
+                    origins.insert(hash.clone());
+                } else {
+                    origins.extend(active.get(&index).into_iter().flatten().cloned());
+                }
             }
         }
         for index in start..=end {
@@ -218,7 +248,7 @@ mod tests {
 
     #[test]
     fn separates_crossings_from_junctions() {
-        let output = "●      sha1 a\n├─┬─╮  Merge: b c d\n│ │ │\n● │ │    sha1 b\n├─│─│─╮  Merge: d e\n├─│─╯ │\n│ │   │\n│ ●   │  sha1 c\n├─┼───┤  Merge: d e f\n│ │   │\n│ │   ●  sha1 e\n├─│───╯\n│ │\n│ ●  sha1 f\n├─╯\n●  sha1 d\n\n";
+        let output = "●─┬─╮  sha1 a\n│ │ │  Merge: b c d\n│ │ │\n●─│─│─╮  sha1 b\n├─│─╯ │  Merge: d e\n│ │   │\n├─●───┤  sha1 c\n│ │   │  Merge: d e f\n│ │   │\n├─│───●  sha1 e\n│ │\n├─●  sha1 f\n│\n●  sha1 d\n\n";
         let expected: Edges = [
             ("a", vec!["b", "c", "d"]),
             ("b", vec!["d", "e"]),

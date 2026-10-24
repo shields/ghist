@@ -38,8 +38,8 @@ There are no display flags.
 ## Display
 
 ```text
-●    sha1 3f2a9c1e5b7d9f0a2c4e6b8d0f1a3c5e7b9d1f3a (HEAD -> main)
-├─╮  Merge: a1b2c3d4e5f6789012345678901234567890abcd f4e5d6c7b8a90123456789012345678901234567
+●─╮  sha1 3f2a9c1e5b7d9f0a2c4e6b8d0f1a3c5e7b9d1f3a (HEAD -> main)
+│ │  Merge: a1b2c3d4e5f6789012345678901234567890abcd f4e5d6c7b8a90123456789012345678901234567
 │ │  Author:     Grace Hopper <grace@example.com>
 │ │  Commit:     Ada Lovelace <ada@example.com>
 │ │  AuthorDate: 2026-10-04 09:12:44 -0400

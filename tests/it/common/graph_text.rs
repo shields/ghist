@@ -65,7 +65,7 @@ mod tests {
 
     #[test]
     fn removes_only_the_graph_column() {
-        let input = "●      sha1 abc\n├─┬─╮  Merge: a b c\n│ │ │  Author: A\n│ │ │\n│ │ │      ● sha1 message\n│ │ │      ".as_bytes();
+        let input = "●─┬─╮  sha1 abc\n│ │ │  Merge: a b c\n│ │ │  Author: A\n│ │ │\n│ │ │      ● sha1 message\n│ │ │      ".as_bytes();
         let input = [
             input,
             b"\xff\n",

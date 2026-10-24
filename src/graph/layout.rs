@@ -294,8 +294,15 @@ impl<Id: Clone + Eq> Graph<Id> {
         let &(_, tapped, _) = targets.first().expect("a fan-out has a first parent");
         let (down, color) = continuation.map_or((0, tapped), |lane| (DOWN, lane.color));
         set(&mut row, node, UP | horizontal | down, color);
+        row.get_mut(2 * node)
+            .expect("the node lane has a cell")
+            .node = true;
         self.shape.width = self.shape.width.max(self.lanes.len());
-        self.shape.rows.push(row);
+        *self
+            .shape
+            .rows
+            .first_mut()
+            .expect("the node row is present") = row;
     }
 }
 
@@ -376,7 +383,7 @@ mod tests {
         assert_eq!(rows(graph.next(&9, &[])), ["● │", "  │"]);
         assert_eq!(rows(graph.next(&6, &[])), ["  ●", ""]);
         assert!(graph.lanes.is_empty());
-        assert_eq!(rows(graph.next(&5, &[4, 2])), ["●", "├─╮", "│ │"]);
+        assert_eq!(rows(graph.next(&5, &[4, 2])), ["●─╮", "│ │"]);
         assert_eq!(rows(graph.next(&4, &[2])), ["● │", "├─╯", "│"]);
         graph.next(&2, &[]);
         assert_eq!(rows(graph.next(&1, &[1])), ["●", "│"]);
@@ -385,19 +392,16 @@ mod tests {
     #[test]
     fn fanout_pull_crossings_and_existing_parents() {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
-        assert_eq!(rows(graph.next(&9, &[8, 7, 6])), ["●", "├─┬─╮", "│ │ │"]);
+        assert_eq!(rows(graph.next(&9, &[8, 7, 6])), ["●─┬─╮", "│ │ │"]);
         assert_eq!(
             rows(graph.next(&8, &[6, 5])),
-            ["● │ │", "├─│─│─╮", "├─│─╯ │", "│ │   │"]
+            ["●─│─│─╮", "├─│─╯ │", "│ │   │"]
         );
-        assert_eq!(
-            rows(graph.next(&7, &[6, 5, 4])),
-            ["│ ●   │", "├─┼───┤", "│ │   │"]
-        );
+        assert_eq!(rows(graph.next(&7, &[6, 5, 4])), ["├─●───┤", "│ │   │"]);
         let shape = graph.next(&5, &[6]);
-        assert_eq!(rows(shape), ["│ │   ●", "├─│───╯", "│ │"]);
-        assert_eq!(shape.rows[1][6].color, 2);
-        assert_eq!(rows(graph.next(&4, &[6, 3])), ["│ ●", "├─┤", "│ │"]);
+        assert_eq!(rows(shape), ["├─│───●", "│ │"]);
+        assert_eq!(shape.rows[0][6].color, 2);
+        assert_eq!(rows(graph.next(&4, &[6, 3])), ["├─●", "│ │"]);
         assert_eq!(rows(graph.next(&6, &[])), ["● │", "  │"]);
         assert_eq!(rows(graph.next(&3, &[])), ["  ●", ""]);
     }
@@ -408,26 +412,20 @@ mod tests {
         graph.next(&6, &[1, 5, 4]);
         graph.next(&4, &[3]);
         let shape = graph.next(&5, &[3, 2]);
-        assert_eq!(rows(shape), ["│ ● │", "│ ├─┤", "│ │ │"]);
+        assert_eq!(rows(shape), ["│ ●─┤", "│ │ │"]);
         assert_eq!(shape.pad[2].color, 4);
         assert_eq!(shape.pad[4].color, 2);
-        assert_eq!(rows(graph.next(&2, &[1])), ["│ ● │", "├─╯ │", "│   │"]);
-        assert_eq!(rows(graph.next(&3, &[1])), ["│   ●", "├───╯", "│"]);
+        assert_eq!(rows(graph.next(&2, &[1])), ["├─● │", "│   │"]);
+        assert_eq!(rows(graph.next(&3, &[1])), ["├───●", "│"]);
     }
 
     #[test]
     fn merges_tap_first_parents_on_the_right_only_when_a_lane_opens() {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&10, &[1, 9, 8, 7]);
-        assert_eq!(
-            rows(graph.next(&9, &[7, 8, 6])),
-            ["│ ● │ │", "│ ├─┼─┤", "│ │ │ │"]
-        );
+        assert_eq!(rows(graph.next(&9, &[7, 8, 6])), ["│ ●─┼─┤", "│ │ │ │"]);
         assert_eq!(rows(graph.next(&6, &[7])), ["│ ● │ │", "│ ├─│─╯", "│ │ │"]);
-        assert_eq!(
-            rows(graph.next(&7, &[8, 1])),
-            ["│ ● │", "├─┤ │", "│ ├─╯", "│ │"]
-        );
+        assert_eq!(rows(graph.next(&7, &[8, 1])), ["├─● │", "│ ├─╯", "│ │"]);
     }
 
     #[test]
@@ -435,11 +433,11 @@ mod tests {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&10, &[5, 6, 7, 8, 9]);
         let shape = graph.next(&8, &[6, 9]);
-        assert_eq!(rows(shape), ["│ │ │ ● │", "│ ├─│─┴─┤", "│ │ │   │"]);
-        assert_eq!(shape.rows[1][6].color, 1);
+        assert_eq!(rows(shape), ["│ ├─│─●─┤", "│ │ │   │"]);
+        assert_eq!(shape.rows[0][6].color, 1);
         let shape = graph.next(&9, &[7, 5]);
-        assert_eq!(rows(shape), ["│ │ │   ●", "├─│─┼───╯", "│ │ │"]);
-        assert_eq!(shape.rows[1][8].color, 2);
+        assert_eq!(rows(shape), ["├─│─┼───●", "│ │ │"]);
+        assert_eq!(shape.rows[0][8].color, 2);
     }
 
     #[test]
@@ -449,7 +447,7 @@ mod tests {
         let shape = graph.next(&8, &[]);
         assert_eq!(rows(shape), ["│ ● │ │", "│   │ │"]);
         let shape = graph.next(&7, &[5, 20]);
-        assert_eq!(rows(shape), ["│   ● │", "├───┤ │", "│   │ │"]);
+        assert_eq!(rows(shape), ["├───● │", "│   │ │"]);
         for id in 20..38 {
             assert_eq!(rows(graph.next(&id, &[id + 1])), ["●   │ │", "│   │ │"]);
         }
@@ -473,7 +471,7 @@ mod tests {
         }
         assert_eq!(
             rows(graph.next(&70, &[80, 19 + HOLE_AGE])),
-            ["│   ● │", "├───┤ │", "│   ├─╯", "│ ╭─╯", "│ │"]
+            ["├───● │", "│   ├─╯", "│ ╭─╯", "│ │"]
         );
     }
 
@@ -494,24 +492,21 @@ mod tests {
     #[test]
     fn sibling_joins_keep_the_outer_column() {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
-        assert_eq!(rows(graph.next(&9, &[7, 8])), ["●", "├─╮", "│ │"]);
+        assert_eq!(rows(graph.next(&9, &[7, 8])), ["●─╮", "│ │"]);
         assert_eq!(rows(graph.next(&8, &[1])), ["│ ●", "│ │"]);
-        assert_eq!(rows(graph.next(&7, &[5, 6])), ["● │", "├─│─╮", "│ │ │"]);
+        assert_eq!(rows(graph.next(&7, &[5, 6])), ["●─│─╮", "│ │ │"]);
         let shape = graph.next(&6, &[1]);
         assert_eq!(rows(shape), ["│ │ ●", "│ ╰─┤", "│   │"]);
         assert_eq!(shape.rows[1][2].color, 1);
         assert_eq!(shape.rows[1][4].color, 1);
-        assert_eq!(rows(graph.next(&5, &[3, 4])), ["●   │", "├─╮ │", "│ │ │"]);
+        assert_eq!(rows(graph.next(&5, &[3, 4])), ["●─╮ │", "│ │ │"]);
         let shape = graph.next(&4, &[1]);
-        assert_eq!(rows(shape), ["│ ● │", "│ ╰─┤", "│   │"]);
-        assert_eq!(shape.rows[1][2].color, 1);
-        assert_eq!(
-            rows(graph.next(&3, &[1, 2])),
-            ["●   │", "├─╮ │", "├─│─╯", "│ │"]
-        );
+        assert_eq!(rows(shape), ["│ ●─┤", "│   │"]);
+        assert_eq!(shape.rows[0][2].color, 1);
+        assert_eq!(rows(graph.next(&3, &[1, 2])), ["●─╮ │", "├─│─╯", "│ │"]);
         let shape = graph.next(&2, &[1]);
-        assert_eq!(rows(shape), ["│ ●", "├─╯", "│"]);
-        assert_eq!(shape.rows[1][2].color, 1);
+        assert_eq!(rows(shape), ["├─●", "│"]);
+        assert_eq!(shape.rows[0][2].color, 1);
         assert_eq!(rows(graph.next(&1, &[])), ["●", ""]);
     }
 
@@ -521,7 +516,7 @@ mod tests {
         graph.next(&9, &[7, 8]);
         graph.next(&8, &[1]);
         graph.next(&7, &[5, 6]);
-        assert_eq!(rows(graph.next(&6, &[1, 5])), ["│ │ ●", "├─┼─╯", "│ │"]);
+        assert_eq!(rows(graph.next(&6, &[1, 5])), ["├─┼─●", "│ │"]);
     }
 
     #[test]
@@ -563,10 +558,7 @@ mod tests {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&100, &[99, 10]);
         graph.next(&10, &[11, 20, 30]);
-        assert_eq!(
-            rows(graph.next(&11, &[20, 40])),
-            ["│ ● │ │", "│ ├─┤ │", "│ │ │ │"]
-        );
+        assert_eq!(rows(graph.next(&11, &[20, 40])), ["│ ●─┤ │", "│ │ │ │"]);
         graph.next(&99, &[98, 50]);
         assert_eq!(
             rows(graph.next(&50, &[20])),
@@ -584,10 +576,7 @@ mod tests {
             rows(graph.next(&10, &[30])),
             ["│ ● │ │ │", "│ ├─│─╯ │", "│ │ │   │"]
         );
-        assert_eq!(
-            rows(graph.next(&21, &[30])),
-            ["│ │ ●   │", "│ ├─╯   │", "│ │     │"]
-        );
+        assert_eq!(rows(graph.next(&21, &[30])), ["│ ├─●   │", "│ │     │"]);
     }
 
     #[test]
@@ -595,15 +584,9 @@ mod tests {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&100, &[90, 10, 20]);
         graph.next(&10, &[11, 50]);
-        assert_eq!(
-            rows(graph.next(&20, &[11, 60])),
-            ["│ │ ● │", "│ ├─┤ │", "│ │ │ │"]
-        );
+        assert_eq!(rows(graph.next(&20, &[11, 60])), ["│ ├─● │", "│ │ │ │"]);
         graph.next(&50, &[70]);
-        assert_eq!(
-            rows(graph.next(&60, &[70])),
-            ["│ │ ● │", "│ │ ╰─┤", "│ │   │"]
-        );
+        assert_eq!(rows(graph.next(&60, &[70])), ["│ │ ●─┤", "│ │   │"]);
     }
 
     #[test]
@@ -639,14 +622,8 @@ mod tests {
         graph.next(&11, &[30, 40]);
         graph.next(&30, &[31, 50]);
         graph.next(&99, &[98, 70]);
-        assert_eq!(
-            rows(graph.next(&50, &[40])),
-            ["│ │ │ ● │", "│ ├─│─╯ │", "│ │ │   │"]
-        );
-        assert_eq!(
-            rows(graph.next(&31, &[32, 60])),
-            ["│ │ ●   │", "│ │ ├─╮ │", "│ │ │ │ │"]
-        );
+        assert_eq!(rows(graph.next(&50, &[40])), ["│ ├─│─● │", "│ │ │   │"]);
+        assert_eq!(rows(graph.next(&31, &[32, 60])), ["│ │ ●─╮ │", "│ │ │ │ │"]);
     }
 
     #[test]
@@ -657,25 +634,19 @@ mod tests {
         graph.next(&20, &[21, 30]);
         graph.next(&21, &[22, 40]);
         graph.next(&30, &[5]);
-        assert_eq!(
-            rows(graph.next(&40, &[5])),
-            ["│   │ │ ●", "│   │ ├─╯", "│   │ │"]
-        );
+        assert_eq!(rows(graph.next(&40, &[5])), ["│   │ ├─●", "│   │ │"]);
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&100, &[90, 10, 20, 30]);
         graph.next(&90, &[80, 40]);
         graph.next(&20, &[]);
-        assert_eq!(
-            rows(graph.next(&30, &[10])),
-            ["│ │   ● │", "│ ├───╯ │", "│ │     │"]
-        );
+        assert_eq!(rows(graph.next(&30, &[10])), ["│ ├───● │", "│ │     │"]);
     }
 
     #[test]
     fn siblings_keep_the_outer_column_only_during_a_burst_of_branches() {
         for (linear, joined) in [
-            (2, ["│ │ ●", "│ ╰─┤", "│   │"]),
-            (3, ["│ │ ●", "│ ├─╯", "│ │"]),
+            (2, vec!["│ │ ●", "│ ╰─┤", "│   │"]),
+            (3, vec!["│ ├─●", "│ │"]),
         ] {
             let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
             graph.next(&9, &[7, 8]);
@@ -700,7 +671,7 @@ mod tests {
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());
         graph.next(&10, &[13, 12, 11]);
         graph.next(&12, &[1]);
-        assert_eq!(rows(graph.next(&11, &[1])), ["│ │ ●", "│ ├─╯", "│ │"]);
+        assert_eq!(rows(graph.next(&11, &[1])), ["│ ├─●", "│ │"]);
     }
 
     #[test]
@@ -709,10 +680,7 @@ mod tests {
         graph.next(&9, &[8, 7]);
         graph.next(&8, &[1, 6]);
         graph.next(&4, &[2]);
-        assert_eq!(
-            rows(graph.next(&3, &[2])),
-            ["│ │ │ │ ●", "│ │ │ ├─╯", "│ │ │ │"]
-        );
+        assert_eq!(rows(graph.next(&3, &[2])), ["│ │ │ ├─●", "│ │ │ │"]);
     }
 
     #[test]
@@ -722,10 +690,7 @@ mod tests {
         graph.next(&10, &[11, 20]);
         graph.next(&11, &[12, 21]);
         graph.next(&90, &[80, 30]);
-        assert_eq!(
-            rows(graph.next(&30, &[20])),
-            ["│ │ │ │ ●", "│ │ ├─│─╯", "│ │ │ │"]
-        );
+        assert_eq!(rows(graph.next(&30, &[20])), ["│ │ ├─│─●", "│ │ │ │"]);
     }
 
     #[test]
@@ -743,10 +708,7 @@ mod tests {
         );
         graph.next(&(10 + HOLE_AGE), &[11 + HOLE_AGE, 600]);
         graph.next(&(11 + HOLE_AGE), &[12 + HOLE_AGE, 700]);
-        assert_eq!(
-            rows(graph.next(&600, &[500])),
-            ["│ │ ● │", "├─│─╯ │", "│ │   │"]
-        );
+        assert_eq!(rows(graph.next(&600, &[500])), ["├─│─● │", "│ │   │"]);
     }
 
     #[test]
@@ -762,23 +724,23 @@ mod tests {
     fn duplicate_parents_and_counter_wrap() {
         let mut graph = Graph::new(NonZeroUsize::new(4).unwrap());
         let shape = graph.next(&5, &[4, 3, 3]);
-        assert_eq!(rows(shape), ["●", "├─╮", "│ │"]);
+        assert_eq!(rows(shape), ["●─╮", "│ │"]);
         assert_eq!(shape.pad[0].color, 0);
         assert_eq!(shape.pad[2].color, 1);
         let shape = graph.next(&4, &[2, 2]);
         assert_eq!(rows(shape), ["● │", "│ │"]);
         assert_eq!(shape.pad[0].color, 3);
         let shape = graph.next(&3, &[2, 1]);
-        assert_eq!(rows(shape), ["│ ●", "├─┤", "│ │"]);
+        assert_eq!(rows(shape), ["├─●", "│ │"]);
         assert_eq!(shape.pad[0].color, 3);
         assert_eq!(shape.pad[2].color, 2);
         let shape = graph.next(&1, &[2]);
-        assert_eq!(rows(shape), ["│ ●", "├─╯", "│"]);
+        assert_eq!(rows(shape), ["├─●", "│"]);
         assert_eq!(shape.pad[0].color, 3);
         let shape = graph.next(&2, &[]);
         assert_eq!(rows(shape), ["●", ""]);
         let shape = graph.next(&8, &[7, 7, 6]);
-        assert_eq!(rows(shape), ["●", "├─╮", "│ │"]);
+        assert_eq!(rows(shape), ["●─╮", "│ │"]);
         assert_eq!(shape.pad[0].color, 3);
         assert_eq!(shape.pad[2].color, 1);
         let mut graph = Graph::new(NonZeroUsize::new(12).unwrap());

@@ -111,8 +111,8 @@ mod tests {
         let mut prefixes = Prefixes::default();
         let shape = graph.next(&9, &[8, 7, 6]);
         prefixes.paint(shape, None);
-        assert_eq!(prefixes.next_line(false), "●      ".as_bytes());
-        assert_eq!(prefixes.next_line(true), "├─┬─╮".as_bytes());
+        assert_eq!(prefixes.next_line(false), "●─┬─╮  ".as_bytes());
+        assert_eq!(prefixes.next_line(true), "│ │ │".as_bytes());
         for _ in 0..3 {
             assert_eq!(prefixes.next_line(false), "│ │ │  ".as_bytes());
         }
@@ -122,7 +122,7 @@ mod tests {
         prefixes.paint(shape, None);
         assert_eq!(
             prefixes.leftover().collect::<Vec<_>>(),
-            ["●".as_bytes(), "├─┬─╮".as_bytes()]
+            ["●─┬─╮".as_bytes()]
         );
         assert_eq!(prefixes.leftover().count(), 0);
         prefixes.paint(

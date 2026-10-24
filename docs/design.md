@@ -149,8 +149,8 @@ For each commit:
    family, origin, and opening record when the node is in column zero or the
    node lane’s family opened it. Place other new parents in the nearest
    available lane at or to the right of the node.
-4. Emit node, fan-out, pull, and optional compaction rows, in that order.
-   Fan-out before pull distinguishes simultaneous attachments.
+4. Draw the fan-out through the node’s dot, then emit pull and optional
+   compaction rows. Fan-out before pull distinguishes simultaneous attachments.
 5. Move at most one lane: the rightmost occupied lane into the first earlier
    hole that has been empty for 20 commits. A new lane usually reuses a hole
    sooner, so waiting saves the jog, at the cost of width; the jog can follow
