@@ -137,24 +137,23 @@ mod tests {
             message: b"base\n".to_vec(),
             ..Commit::default()
         });
+        let leaf = history.push(Commit {
+            message: b"leaf\n".to_vec(),
+            ..Commit::default()
+        });
         let side = history.push(Commit {
-            parents: vec![chain],
+            parents: vec![chain, leaf],
             message: b"side\n".to_vec(),
             ..Commit::default()
         });
-        let merge = history.push(Commit {
-            parents: vec![base, chain],
-            message: b"merge\n".to_vec(),
-            ..Commit::default()
-        });
         history.push(Commit {
-            parents: vec![base, merge, side],
+            parents: vec![base, leaf, side],
             message: b"octopus\n".to_vec(),
             ..Commit::default()
         });
         repo.import(&history).unwrap();
         let out = String::from_utf8(oracle::fuller(&repo, &[]).unwrap()).unwrap();
-        let twentieth = repo.git(["rev-parse", "HEAD^2^2~19"]).unwrap();
+        let twentieth = repo.git(["rev-parse", "HEAD^3^1~19"]).unwrap();
         let twentieth = std::str::from_utf8(twentieth.trim_ascii_end()).unwrap();
         assert!(
             out.contains(&format!("│   ●  sha1 {twentieth}\n│ ╭─╯  Author:")),

@@ -18,11 +18,11 @@ limitations under the License.
 
 This document explains why ghist’s lane graph draws what it draws: the model,
 the results from graph drawing and online algorithms that apply to it, what
-other tools do, and the measurements behind the rules in
+other tools do, and earlier measurements that inform the rules in
 [the design](design.md#graph-layout). The short version: computing a better
 layout is cheap, but knowing enough to choose it is not. ghist decides each
-commit’s rows from that commit and the ones before it, and three rules recover
-much of what lookahead would buy.
+commit’s rows from that commit and the ones before it. It keeps first-parent
+lines straight and connects incoming lanes at the commit they await.
 
 ## The model
 
@@ -30,20 +30,20 @@ Rows are fixed. Git’s `--topo-order` decides the order of commits, and every
 commit’s rows are written before the next commit is read.
 
 A lane is a column awaiting one commit. Its lifetime is an interval of rows,
-from the commit that opens it to the row where it ends: at the awaited commit,
-or where it joins another lane awaiting the same commit. Lanes alive in the same
-row need different columns. The first-parent chain of the first commit stays in
-column zero.
+from the commit that opens it to the awaited commit. Several lanes may await the
+same commit; they meet at its dot. Lanes alive in the same row need different
+columns. The first-parent chain of the first commit stays in column zero.
 
 A connector is a horizontal span in one row: a fork from a commit to a new or
 existing parent lane, a join, or a lane moving between columns. A connector
 crosses every occupied column strictly between its ends, drawn as `│` between
 `─` segments. Corners (`╭╮╯╰`) are bends.
 
-Every parent connection leaves the commit’s dot on the commit row. When the
-parent already has a lane, the connection reaches that lane’s current column.
-Any move to a different column follows as a separate row of bends. A row without
-a commit has no branching junctions.
+Every first-parent edge continues straight down from the commit’s dot. An
+existing lane for that parent stays open alongside it until the parent is shown.
+Other parent connections reach their existing lanes on the commit row, or open
+new lanes. Incoming connections end at the dot, and outgoing connections start
+there. A row without a commit has no branching junctions.
 
 The costs are crossings, bends, width, and rows. Width is paid on every text
 line, because the text column is `2 × width + 1`, so the mean matters more than
@@ -102,9 +102,46 @@ Each strategy pays in one currency:
 
 ## ghist’s rules
 
-Beyond first-fit, three rules decide which column survives when lanes meet and
-when holes close. None looks ahead, and none changes lane colors, which depend
-only on the stream order and on the awaited lane’s color surviving a join.
+**Straight first parents.** A commit’s first parent continues in its column,
+even when another lane awaits the same parent. Both lanes keep their columns
+until that parent is printed. This keeps the first-parent chain of the first
+commit in column zero and avoids detours that leave a dot horizontally only to
+bend back into its column below it.
+
+**Incoming edges meet at the dot.** When several lanes await a commit, the
+leftmost carries the dot, and the others connect to it on that row. Those other
+columns become holes only after the outgoing parents have been placed. Reusing
+one immediately would make an incoming edge look as though it continued past the
+commit into a different parent.
+
+For example, two branches that await a merge’s first parent keep separate lines
+until that parent is printed:
+
+```text
+●─┬─╮  tip
+│ │ │
+●─│─┤  merge
+│ │ │
+│ │ ●  side
+│ │ │
+●─┴─╯  parent
+```
+
+Additional merge parents may share an existing lane, connected on the merge’s
+row. Unrelated lanes cross the horizontal connection without joining it. Keeping
+first-parent lines separate can use more columns, but every join has a commit at
+which to interpret it.
+
+**Lazy compaction.** A hole is filled only after it has stayed empty for 20
+commits. The rightmost lane moves into the first old hole with two bends and no
+junction. This preserves the edges and bounds the cost of unused columns.
+
+## Earlier lane-sharing rules
+
+The measurements below cover an earlier layout that combined first-parent lanes
+before reaching the awaited commit. Its three rules and their rationale are
+retained here to explain those results; the current layout keeps those lanes
+separate and retains only lazy compaction.
 
 **Merge-tap.** A merge outside column zero whose first parent is already awaited
 on its right taps that lane instead of pulling it in, if another parent opens a
@@ -156,7 +193,7 @@ one commit `X` and merged one after another. First-fit placed the long-lived
 lane for `X` innermost and crossed it at every merge after the first:
 
 ```text
-first-fit         ghist
+first-fit         earlier ghist
 ●─╮               ●─╮
 │ ●               │ ●
 ●─│─╮             ●─│─╮
@@ -179,9 +216,9 @@ no layout removes the last.
 
 ## Measurements
 
-These measurements predate separating parent connections from lane moves. The
-lane placement policies remain the same, but a pull now draws its parent
-connection on the commit row and two bends on the following row.
+These measurements describe the earlier lane-sharing rules above. They are not
+measurements of the current layout, which retains separate first-parent lanes
+until their target commit and can therefore use more width.
 
 Measurements on October 9, 2026 used an Apple M1 Max, macOS 27.0.1, Rust 1.99.0,
 and Git 2.56.0, on 23 local repositories chosen for their merges. Each figure
@@ -194,7 +231,7 @@ counts the graph prefixes of plain `ghist` output over the whole history:
 - **Mean width:** each commit’s graph width in columns, holes included, averaged
   over commits.
 
-First-fit with immediate compaction, then ghist’s rules:
+First-fit with immediate compaction, then the earlier lane-sharing rules:
 
 | Repository                         | HEAD       | Commits |             Crossings |           Corners |           Jogs |        Graph rows |    Mean width |
 | ---------------------------------- | ---------- | ------: | --------------------: | ----------------: | -------------: | ----------------: | ------------: |
@@ -379,7 +416,7 @@ read.
 | Family                                   | Lane               | Needs         | Lanes move | Members                                                  |
 | ---------------------------------------- | ------------------ | ------------- | ---------- | -------------------------------------------------------- |
 | A. Insert at the commit, collapse left   | Shared per parent  | Nothing ahead | Constantly | `git log --graph`                                        |
-| B. Sparse fixed columns, first free slot | Shared per parent  | Nothing ahead | Rarely     | ghist, Sapling’s renderdag (jj)                          |
+| B. Sparse fixed columns, first free slot | Shared or separate | Nothing ahead | Rarely     | ghist, Sapling’s renderdag (jj)                          |
 | C. One lane per edge, appended right     | One per child edge | Nothing ahead | Yes        | VS Code’s built-in graph, lazygit, SourceGit, GitX       |
 | D. Straight branches, children first     | One per branch     | Children map  | Never      | pvigier’s straight branches, DoltHub, serie              |
 | E. Interval scheduling of branch chains  | One per branch     | Whole window  | Never      | git-graph (shortest first), GitLab (650 commits), Fossil |

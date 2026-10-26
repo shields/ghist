@@ -17,6 +17,7 @@ mod tests {
     use crate::common::{
         ansi,
         history::{Commit, History},
+        oracle,
         repo::TestRepo,
     };
     use ghist::Exit;
@@ -32,6 +33,31 @@ mod tests {
         );
         assert_eq!(err, b"");
         out
+    }
+
+    #[test]
+    fn merge_parent_connections_wait_for_the_parent_commit() {
+        for format in ["sha1", "sha256"] {
+            let repo = TestRepo::new(format).unwrap();
+            let mut history = History::default();
+            for parents in [vec![], vec![1], vec![1, 2], vec![3, 1, 2]] {
+                history.push(Commit {
+                    parents,
+                    ..Commit::default()
+                });
+            }
+            repo.import(&history).unwrap();
+            let output = String::from_utf8(oracle::fuller(&repo, &[]).unwrap()).unwrap();
+            let prefixes: Vec<_> = output
+                .lines()
+                .filter_map(|line| {
+                    line.split_once(&format!("  {format} "))
+                        .map(|(prefix, _)| prefix)
+                })
+                .collect();
+            assert_eq!(prefixes, ["●─┬─╮", "●─│─┤", "│ │ ●", "●─┴─╯"]);
+            assert!(!output.contains('╭') && !output.contains('├'));
+        }
     }
 
     #[test]

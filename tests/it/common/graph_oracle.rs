@@ -183,6 +183,12 @@ fn row(
             {
                 if let Some((_, hash)) = commit.filter(|(node, _)| *node == index) {
                     origins.insert(hash.clone());
+                } else if let Some((_, hash)) =
+                    commit.filter(|(node, _)| (start..=end).contains(node))
+                {
+                    for child in active.get(&index).into_iter().flatten() {
+                        edges.entry(child.clone()).or_default().insert(hash.clone());
+                    }
                 } else {
                     origins.extend(active.get(&index).into_iter().flatten().cloned());
                 }
@@ -253,7 +259,10 @@ mod tests {
             ("● │", "├─╯"),
             ("│ │ ●", "│ ╰─┤"),
             ("│ │ │ ●", "│ ╰─│─┤"),
-            ("●─╮ │", "├─│─╯"),
+            ("● │", "├─╮"),
+            ("│ │ ●", "│ ╭─┤"),
+            ("│ │ │ ●", "│ ╭─│─┤"),
+            ("●─╮ │", "├─┼─╯"),
         ] {
             let output = format!("{node}  sha1 a\n{junction}  Author: A\n");
             assert!(
@@ -266,8 +275,32 @@ mod tests {
     }
 
     #[test]
+    fn incoming_edges_end_at_the_dot_before_outgoing_edges_start() {
+        let output = "●─╮  sha1 a\n│ │\n● │  sha1 b\n│ │\n●─┴─╮  sha1 c\n│   │\n│   ●  sha1 e\n│   │\n●───╯  sha1 d\n\n";
+        let expected: Edges = [
+            ("a", vec!["b", "c"]),
+            ("b", vec!["c"]),
+            ("c", vec!["d", "e"]),
+            ("d", vec![]),
+            ("e", vec!["d"]),
+        ]
+        .into_iter()
+        .map(|(node, parents)| {
+            (
+                node.as_bytes().to_vec(),
+                parents
+                    .into_iter()
+                    .map(|parent| parent.as_bytes().to_vec())
+                    .collect(),
+            )
+        })
+        .collect();
+        assert_eq!(parse(output.as_bytes()).unwrap(), expected);
+    }
+
+    #[test]
     fn separates_crossings_from_junctions() {
-        let output = "●─┬─╮  sha1 a\n│ │ │  Merge: b c d\n│ │ │\n●─│─┼─╮  sha1 b\n╭─│─╯ │  Merge: d e\n│ │   │\n├─●───┤  sha1 c\n│ │   │  Merge: d e f\n│ │   │\n├─│───●  sha1 e\n│ │\n├─●  sha1 f\n│\n●  sha1 d\n\n";
+        let output = "●─┬─╮  sha1 a\n│ │ │  Merge: b c d\n│ │ │\n●─│─│─╮  sha1 b\n│ │ │ │  Merge: d e\n│ │ │ │\n│ ●─│─┼─╮  sha1 c\n│ │ │ │ │  Merge: d e f\n│ │ │ │ │\n│ │ │ ● │  sha1 e\n│ │ │ │ │\n│ │ │ │ ●  sha1 f\n│ │ │ │ │\n●─┴─┴─┴─╯  sha1 d\n\n";
         let expected: Edges = [
             ("a", vec!["b", "c", "d"]),
             ("b", vec!["d", "e"]),

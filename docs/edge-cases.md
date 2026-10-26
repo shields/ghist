@@ -169,50 +169,39 @@ TAB, which have separate message/framing cases.
 
 ## Graph layout
 
-| Case                                                                             | Status | Coverage                                             |
-| -------------------------------------------------------------------------------- | ------ | ---------------------------------------------------- |
-| Linear ancestry, multiple roots, and reused lane holes                           | T      | Pure layout goldens                                  |
-| Merge fan-out, existing parents, pulls, and vertical crossings                   | T      | Pure layout goldens                                  |
-| Parent connections intersect the dot; pulls in either direction only bend lanes  | T      | Layout goldens and glyph-to-edge oracle              |
-| No branching junction appears on a row without a commit                          | T      | Oracle rejects low joins; exhaustive/generated DAGs  |
-| Merges tap first parents on the right only if opening a lane outside column zero | T      | Pure layout goldens                                  |
-| Single-parent joins in a merge train keep the outer column                       | T      | Pure layout goldens                                  |
-| Older siblings rejoining lanes opened after them keep the inner column           | T      | Pure layout goldens                                  |
-| Siblings straddling their opener keep the inner column                           | T      | Pure layout goldens                                  |
-| Siblings beside another hole keep the inner column                               | T      | Pure layout goldens                                  |
-| Siblings keep the outer column only during their opener’s burst of branches      | T      | Pure layout goldens                                  |
-| Merges between sibling lanes keep the inner column                               | T      | Pure layout goldens                                  |
-| Lanes joining column zero or their opener take its family                        | T      | Pure layout goldens                                  |
-| Other pulled lanes keep their own family                                         | T      | Pure layout goldens                                  |
-| Merge taps open lanes from the tapped lane’s family                              | T      | Pure layout goldens                                  |
-| Separate tips are not siblings                                                   | T      | Pure layout goldens                                  |
-| Lanes opened by different families are not siblings                              | T      | Pure layout goldens                                  |
-| Siblings compacted into column zero are tapped                                   | T      | Pure layout goldens                                  |
-| Duplicate parents are laid out once but advance the color counter, which wraps   | T      | Pure layout goldens and incoming-edge colors         |
-| Tap corners use the first parent’s lane color                                    | T      | Pure layout goldens                                  |
-| Aligned graph prefixes on commit headers and messages                            | T      | Renderer mockup golden                               |
-| Trimmed blank rows, prior-commit separators, and leftover rows                   | T      | Prefix and renderer goldens                          |
-| Prefix output preserves every partial-write error                                | T      | Renderer failure injection                           |
-| Rendered edges equal Git parents for exhaustive and generated DAGs               | T      | Independent glyph-to-edge oracle                     |
-| No rendered lane is still open after the final row                               | T      | Independent glyph-to-edge oracle                     |
-| Determinism, column-zero mainline, and color-independent text                    | T      | Graph output properties in both object formats       |
-| Default and configured lane colors agree with Git                                | T      | Incoming-edge colors in both object formats          |
-| Empty palettes, empty entries, and more than 65,535 colors                       | T      | Palette parsing and color-counter bounds             |
-| Empty palette leaves lanes uncolored; Git divides by zero (SIGFPE on x86)        | T      | Compared with Git’s `normal` palette                 |
-| A trailing comma adds no palette entry                                           | T      | Compared with Git’s lanes for `red,` and `red,blue,` |
-| Exclusion and symmetric ranges have no dangling parent lanes                     | T      | `tests/it/ranges.rs`, both object formats            |
-| `^X^@`, `^X^!`, and `^X^-` exclusions match Git with and without `--` and paths  | T      | `parent_shorthand_exclusions_match_git`              |
-| A positive revision before paths without `--` skips the boundary walk            | T      | Fake-Git command counts                              |
-| Only operands rev-parse rejects are probed, so no range is walked twice          | T      | Fake-Git command counts                              |
-| A bare `..` is the parent directory, as in Git, not the range `HEAD..HEAD`       | T      | `a_bare_parent_directory_is_a_path_as_in_git`        |
-| A short ID shared by a commit and a blob resolves to the commit, as in Git       | T      | `ambiguous_short_ids_resolve_to_commits_as_in_git`   |
-| Path-limited boundaries follow Git’s rewritten parents                           | T      | `path_limited_ranges_hide_rewritten_parents`         |
-| Ordinary revisions skip the pre-pass; failing steps keep Git’s status and stderr | T      | Fake-Git command counts and failure cases            |
-| A rejected expansion drops its stderr; the walk or `git log` reports Git errors  | T      | Fake-Git failure cases                               |
-| A pre-pass child killed by a signal keeps that status                            | T      | Fake-Git failure cases                               |
-| Pre-pass warnings print once, as Git prints them                                 | T      | `prepass_warnings_appear_once_as_in_git`             |
-| Compaction moves one rightmost lane into a hole without changing edges or colors | T      | Layout goldens and long generated histories          |
-| Holes wait 20 commits before compaction, so a jog can follow any commit          | T      | Layout goldens and an oracle-checked history         |
+| Case                                                                             | Status | Coverage                                                         |
+| -------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------- |
+| Linear ancestry, multiple roots, and reused lane holes                           | T      | Pure layout goldens                                              |
+| Merge fan-out, existing parents, and vertical crossings                          | T      | Pure layout goldens                                              |
+| Existing first-parent lanes stay separate until they reach the parent dot        | T      | Layout goldens and integration regression in both object formats |
+| Multiple incoming edges terminate at the dot before outgoing edges start         | T      | Layout goldens, glyph-to-edge oracle, and generated DAGs         |
+| Incoming columns cannot be reused for outgoing parents on the same row           | T      | Layout golden and glyph-to-edge oracle regression                |
+| No branching junction appears on a row without a commit                          | T      | Oracle rejects low joins and splits; exhaustive/generated DAGs   |
+| Duplicate parents are laid out once but advance the color counter, which wraps   | T      | Pure layout goldens and incoming-edge colors                     |
+| Incoming and outgoing connections retain their lane colors                       | T      | Pure layout goldens                                              |
+| Aligned graph prefixes on commit headers and messages                            | T      | Renderer mockup golden                                           |
+| Trimmed blank rows, prior-commit separators, and leftover rows                   | T      | Prefix and renderer goldens                                      |
+| Prefix output preserves every partial-write error                                | T      | Renderer failure injection                                       |
+| Rendered edges equal Git parents for exhaustive and generated DAGs               | T      | Independent glyph-to-edge oracle                                 |
+| No rendered lane is still open after the final row                               | T      | Independent glyph-to-edge oracle                                 |
+| Determinism, column-zero mainline, and color-independent text                    | T      | Graph output properties in both object formats                   |
+| Default and configured lane colors agree with Git                                | T      | Incoming-edge colors in both object formats                      |
+| Empty palettes, empty entries, and more than 65,535 colors                       | T      | Palette parsing and color-counter bounds                         |
+| Empty palette leaves lanes uncolored; Git divides by zero (SIGFPE on x86)        | T      | Compared with Git’s `normal` palette                             |
+| A trailing comma adds no palette entry                                           | T      | Compared with Git’s lanes for `red,` and `red,blue,`             |
+| Exclusion and symmetric ranges have no dangling parent lanes                     | T      | `tests/it/ranges.rs`, both object formats                        |
+| `^X^@`, `^X^!`, and `^X^-` exclusions match Git with and without `--` and paths  | T      | `parent_shorthand_exclusions_match_git`                          |
+| A positive revision before paths without `--` skips the boundary walk            | T      | Fake-Git command counts                                          |
+| Only operands rev-parse rejects are probed, so no range is walked twice          | T      | Fake-Git command counts                                          |
+| A bare `..` is the parent directory, as in Git, not the range `HEAD..HEAD`       | T      | `a_bare_parent_directory_is_a_path_as_in_git`                    |
+| A short ID shared by a commit and a blob resolves to the commit, as in Git       | T      | `ambiguous_short_ids_resolve_to_commits_as_in_git`               |
+| Path-limited boundaries follow Git’s rewritten parents                           | T      | `path_limited_ranges_hide_rewritten_parents`                     |
+| Ordinary revisions skip the pre-pass; failing steps keep Git’s status and stderr | T      | Fake-Git command counts and failure cases                        |
+| A rejected expansion drops its stderr; the walk or `git log` reports Git errors  | T      | Fake-Git failure cases                                           |
+| A pre-pass child killed by a signal keeps that status                            | T      | Fake-Git failure cases                                           |
+| Pre-pass warnings print once, as Git prints them                                 | T      | `prepass_warnings_appear_once_as_in_git`                         |
+| Compaction moves one rightmost lane into a hole without changing edges or colors | T      | Layout goldens and long generated histories                      |
+| Holes wait 20 commits before compaction, so a jog can follow any commit          | T      | Layout goldens and an oracle-checked history                     |
 
 ## Pager and output lifecycle
 

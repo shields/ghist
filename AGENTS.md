@@ -31,6 +31,12 @@ Stream commit records and patch lines. Do not buffer the complete history or a
 complete patch. The negative-revision boundary pre-pass may retain its hidden
 parent set.
 
+## Graph connections
+
+Continue first-parent edges straight down, keeping existing lanes for the same
+parent separate until they reach its commit. All joins and fan-outs belong on a
+commit row; rows without commits may only move lanes.
+
 ## Repository races
 
 Repository changes during a run are unspecified. ghist is a read-only display

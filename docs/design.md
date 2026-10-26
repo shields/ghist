@@ -117,56 +117,42 @@ message and preserve Git’s blank line between the summary and patch.
 
 ## Graph layout
 
-`Graph<Id>` holds a column per lane or hole. A lane has a target ID, a palette
-index, a family, and an origin: the family that opened it, if any. A lane also
-has an opening record: the last two commits at which it opened another lane. A
-tip starts a family. A new first parent’s lane keeps the node lane’s family,
-origin, and opening record; a lane for any other new parent starts a family
-whose origin is the family of the lane that carries the first parent. A hole
-records the commit at which it opened and is reusable space. The palette counter
-starts at `N − 1`.
+`Graph<Id>` holds a column per lane or hole. A lane has a target ID and a
+palette index. Several lanes can await the same commit. A hole records the
+commit at which it opened and is reusable space. The palette counter starts at
+`N − 1`.
 
 For each commit:
 
-1. Use its existing target lane, or the first hole for a new tip.
+1. Use its leftmost existing target lane, or the first hole for a new tip.
+   Collect every other lane awaiting this commit as an incoming connection.
 2. For a new tip or a commit that lists more than one shown parent, advance the
    counter once per listing, including duplicates and parents already assigned a
    lane, as Git does. Existing parents retain their colors; a new target takes
    the counter at its first listing. Lay out the deduplicated parents.
-3. Continue the first parent in the node column. Tap an existing first parent to
-   the left. Pull one from the right, but tap it instead if the node is not in
-   column zero and another parent is new. A commit with one parent whose lane
-   and the parent’s lane were opened by the same family, neither in column zero,
-   keeps the outer column of the two instead when that family is in a merge
-   train: the node lane’s family started after the parent lane’s, the opener’s
-   lane lies left of both, the inner column would be the only hole left of the
-   outer one, and the opener opened lanes at two commits within the last five.
-   It pulls from the left or taps to the right, so the opener’s next branch
-   starts in the inner column, inside the shared parent’s lane. A freed column
-   that no branch takes costs a jog when compaction fills it, so a long-lived
-   branch rejoining lanes opened after it, or a family whose branches have
-   stopped, keeps the inner column. The surviving lane takes the node lane’s
-   family, origin, and opening record when the node is in column zero or the
-   node lane’s family opened it. Place other new parents in the nearest
-   available lane at or to the right of the node.
-4. Draw every parent connection through the node’s dot, using the parent’s
-   incoming column when it already has a lane. A pull then moves that parent
-   lane into the node column with two bends. Pull and compaction rows contain no
-   branching junctions: connections belong on the commit row, and later rows
-   only move lanes.
+3. Continue the first parent straight down in the node column, even if another
+   lane already awaits it. Leave that other lane open until the parent is shown.
+   Connect additional parents to their existing lanes, or place them in the
+   nearest available lane at or to the right of the node. Incoming columns stay
+   reserved through this step, so a new outgoing lane cannot look like a
+   continuation of an incoming edge that must end at the dot.
+4. Draw incoming connections and outgoing parent connections on the commit row.
+   Incoming connections end at the dot; outgoing connections start there. Free
+   the other incoming columns after drawing them. Rows without commits have no
+   branching junctions.
 5. Move at most one lane: the rightmost occupied lane into the first earlier
    hole that has been empty for 20 commits. A new lane usually reuses a hole
    sooner, so waiting saves the jog, at the cost of width; the jog can follow
    any commit. Trim trailing holes.
 
-[Graph layout](graph-layout.md) gives the model, theory, prior art, and
-measurements behind these rules.
+[Graph layout](graph-layout.md) gives the model, theory, prior art, and earlier
+measurements behind these choices.
 
 Cells carry directional arms and a color. A `│` between horizontal segments is a
 crossing with the vertical on top; `┼` is a junction. Horizontal spans use the
-far attachment’s color, and the corner of a lane that ends in a tap uses the
-first parent’s lane color; lane moves use the moving lane’s color. Adjacent
-equal colors share an SGR span, reset before the text.
+far attachment’s color, and incoming and outgoing connections retain their lane
+colors. Lane moves use the moving lane’s color. Adjacent equal colors share an
+SGR span, reset before the text.
 
 The graph sees Git’s rewritten `%P` minus the hidden boundary set. Header
 `Merge:` lines retain all parents. Palette indices use `usize`, so configured
