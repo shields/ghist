@@ -31,5 +31,11 @@
       matchDepTypes: ["devDependencies"],
       automerge: true,
     },
+    {
+      description: "Preserve full versions for crate tools",
+      matchManagers: ["custom.regex"],
+      matchDatasources: ["crate"],
+      rangeStrategy: "bump",
+    },
   ],
 }
