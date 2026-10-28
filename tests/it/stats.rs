@@ -130,6 +130,43 @@ mod tests {
         }
     }
     #[test]
+    fn unicode_filename_alignment_uses_display_cells() {
+        let repo = TestRepo::new("sha1").unwrap();
+        let mut history = History::default();
+        history.push(Commit {
+            changes: ["ascii", "a\u{5c8}", "\u{18e00}", "\u{1faf9}"]
+                .map(|name| file(name.as_bytes(), b"one\n"))
+                .into(),
+            ..Commit::default()
+        });
+        repo.import(&history).unwrap();
+        repo.git(["config", "core.quotePath", "false"]).unwrap();
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        assert_eq!(
+            ghist::run(&repo.context(&["--stat"]), &mut out, &mut err),
+            ghist::Exit::Code(0),
+            "{err:?}"
+        );
+        assert_eq!(err, b"");
+        let out = crate::common::graph_text::strip(&out).unwrap();
+        assert!(
+            out.ends_with(
+                concat!(
+                    " ascii | 1 +\n",
+                    " a\u{5c8}     | 1 +\n",
+                    " \u{18e00}    | 1 +\n",
+                    " \u{1faf9}    | 1 +\n",
+                    " 4 files changed, 4 insertions(+)\n"
+                )
+                .as_bytes()
+            ),
+            "{}",
+            String::from_utf8_lossy(&out)
+        );
+    }
+
+    #[test]
     fn combined_stats_and_patches_match_git() {
         for format in ["sha1", "sha256"] {
             let repo = fixture(format);

@@ -27,6 +27,9 @@ mailmap, encodings, and diffs. When semantics differ from git, change the git
 invocation instead of reinterpreting its output. Do not translate git's GPL
 source into this Apache-licensed project.
 
+Display widths for message tabs and diffstat filenames follow `unicode-width`,
+independently of Git's Unicode tables.
+
 Stream commit records and patch lines. Do not buffer the complete history or a
 complete patch. The negative-revision boundary pre-pass may retain its hidden
 parent set.

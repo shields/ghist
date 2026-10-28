@@ -23,6 +23,35 @@ pub struct CommitText {
     pub message: Vec<Vec<u8>>,
 }
 
+pub fn message_line_matches(expected: &[u8], actual: &[u8]) -> bool {
+    use unicode_width::UnicodeWidthChar;
+
+    let mut remaining = actual;
+    for part in expected.split_inclusive(|&byte| byte == b'\t') {
+        let text = part.strip_suffix(b"\t").unwrap_or(part);
+        let Some(rest) = remaining.strip_prefix(text) else {
+            return false;
+        };
+        remaining = rest;
+        if part.ends_with(b"\t") {
+            let prefix = actual
+                .get(..actual.len() - remaining.len())
+                .unwrap_or_default();
+            let columns = std::str::from_utf8(prefix).ok().and_then(|text| {
+                text.chars()
+                    .map(UnicodeWidthChar::width)
+                    .sum::<Option<usize>>()
+            });
+            let padding = columns.map(|columns| vec![b' '; 8 - columns.saturating_sub(4) % 8]);
+            let Some(rest) = remaining.strip_prefix(padding.as_deref().unwrap_or(b"\t")) else {
+                return false;
+            };
+            remaining = rest;
+        }
+    }
+    remaining.is_empty()
+}
+
 pub fn commits(bytes: &[u8]) -> Result<Vec<CommitText>, String> {
     if bytes.is_empty() {
         return Ok(Vec::new());
@@ -88,6 +117,39 @@ pub fn commits(bytes: &[u8]) -> Result<Vec<CommitText>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn message_comparison_preserves_text_and_checks_tab_cells() {
+        for (expected, actual) in [
+            (b"".as_slice(), b"".as_slice()),
+            (b"    text", b"    text"),
+            (b"    a\tb\tc", b"    a       b       c"),
+            (b"    a\t  b", b"    a         b"),
+            (
+                "    a\u{ad}\tx".as_bytes(),
+                "    a\u{ad}       x".as_bytes(),
+            ),
+            (
+                "    \u{1faf9}\tx".as_bytes(),
+                "    \u{1faf9}      x".as_bytes(),
+            ),
+            (b"    a\xff\tx", b"    a\xff\tx"),
+            (b"    a\x1b\tx", b"    a\x1b\tx"),
+        ] {
+            assert!(message_line_matches(expected, actual));
+            assert!(!message_line_matches(expected, &[actual, b"x"].concat()));
+        }
+        for actual in [
+            "    a\u{ad}      x",
+            "    a\u{ad}        x",
+            "    a\u{ad}       y",
+        ] {
+            assert!(!message_line_matches(
+                "    a\u{ad}\tx".as_bytes(),
+                actual.as_bytes()
+            ));
+        }
+    }
 
     #[test]
     fn fuller_and_conditional_headers_normalize_only_blank_indentation() {

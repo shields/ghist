@@ -86,6 +86,7 @@ behavior entries above stay marked as gaps until ghist itself is tested.
 | Tags, remote refs, independent roots, ordered octopus parents           | T      | `tests/it/fixtures.rs`                                |
 | Shallow clones, stash, replace refs, mailmap                            | T      | `supports_shallow_stash_replace_and_mailmap_fixtures` |
 | Allowlisted process environment and Git setup failures                  | T      | `isolates_environment_and_git_failures`               |
+| Executable fixtures created and launched by parallel test threads       | T      | `executable_fixtures_run_during_parallel_creation`    |
 
 ## Configuration and subprocess setup
 
@@ -118,8 +119,10 @@ behavior entries above stay marked as gaps until ghist itself is tested.
 
 ## Plain rendering
 
-The Unicode-width comparison covers every scalar value except NUL, LF, CR, and
-TAB, which have separate message/framing cases.
+The Unicode tab-stop test checks `unicode-width` display cells across every
+scalar value except NUL, LF, CR, and TAB, which have separate message/framing
+cases. Spacing follows ghist’s Unicode tables independently of Git’s, including
+Unicode 18 combining marks, ideographs, and emoji.
 
 | Dimension                                                                      | Status | Evidence                                                                                    |
 | ------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------- |
@@ -132,19 +135,20 @@ TAB, which have separate message/framing cases.
 | Invalid UTF-8 and control bytes stop tab expansion                             | T      | `tabs_use_message_columns_and_stop_at_invalid_text`, `tests/it/headers.rs`                  |
 | Git output encodings and NUL-truncated messages                                | T      | `message_bytes_and_encoding_match_git_fuller`                                               |
 | Commit separators and every partial output write                               | T      | `separation_empty_messages_and_every_partial_write`                                         |
-| Unicode character widths and tab stops across the scalar range                 | T      | `unicode_tab_stops_match_git_across_scalar_values`                                          |
+| Unicode character widths and tab stops across the scalar range                 | T      | `unicode_tab_stops_follow_display_widths_across_scalar_values`                              |
 
 ## Differential and generated histories
 
-| Dimension                                                                         | Status | Evidence                                                              |
-| --------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------- |
-| Commit order, identities, timezones, merge headers and messages versus Git fuller | T      | `tests/it/differential.rs`                                            |
-| All 75 DAGs with one through four commits                                         | T      | `tests/it/exhaustive.rs`                                              |
-| Message control bytes survive the oracle's blank-line normalization               | T      | `common::parse::tests`, `message_bytes_and_encoding_match_git_fuller` |
-| Framed records and diffs round-trip across generated buffer sizes                 | T      | `git::stream_fuzz::tests`                                             |
-| Arbitrary malformed byte streams terminate without panicking                      | T      | `git::stream_fuzz::tests`                                             |
-| Shallow boundaries, replacement refs, stashes and 32-parent merges                | T      | `tests/it/gaps.rs`                                                    |
-| Empty ranges, exclusions, symmetric differences and path-simplified merges        | T      | `tests/it/gaps.rs`                                                    |
+| Dimension                                                                         | Status | Evidence                                                                                                              |
+| --------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| Commit order, identities, timezones, merge headers and messages versus Git fuller | T      | `tests/it/differential.rs`                                                                                            |
+| All 75 DAGs with one through four commits                                         | T      | `tests/it/exhaustive.rs`                                                                                              |
+| Message control bytes survive the oracle's blank-line normalization               | T      | `common::parse::tests`, `message_bytes_and_encoding_match_git_fuller`                                                 |
+| History comparisons preserve message bytes while checking ghist’s tab stops       | T      | `message_comparison_preserves_text_and_checks_tab_cells`, `unicode_spacing_is_independent_of_git_history_comparisons` |
+| Framed records and diffs round-trip across generated buffer sizes                 | T      | `git::stream_fuzz::tests`                                                                                             |
+| Arbitrary malformed byte streams terminate without panicking                      | T      | `git::stream_fuzz::tests`                                                                                             |
+| Shallow boundaries, replacement refs, stashes and 32-parent merges                | T      | `tests/it/gaps.rs`                                                                                                    |
+| Empty ranges, exclusions, symmetric differences and path-simplified merges        | T      | `tests/it/gaps.rs`                                                                                                    |
 
 ## Color configuration
 
@@ -231,6 +235,7 @@ TAB, which have separate message/framing cases.
 | Merge, root, range and path-limited patch behavior follows Git                                         | T      | Fixture and generated differential comparisons                                                                    |
 | Stats match Git at widths 20–200 in both object formats                                                | T      | `tests/it/stats.rs`, generated histories                                                                          |
 | Filename quoting, Unicode, renames, configured name/bar widths (including negative widths) and scaling | T      | Stat comparisons and layout goldens                                                                               |
+| Unicode 18 filename alignment and truncation use ghist’s display widths                                | T      | `render::stat::tests`, `unicode_filename_alignment_uses_display_cells`                                            |
 | Binary sizes are queried lazily; missing and unchanged sides never trigger lookups                     | T      | Fake-Git lookup capture                                                                                           |
 | Mode-only and deletion-only stats preserve zero counts and summary grammar                             | T      | Git stat comparisons                                                                                              |
 | Malformed size responses, broken cat-file input, and Git failure precedence remain errors              | T      | `size_failures_preserve_exit_status_diagnostics_and_walk_error_precedence`                                        |

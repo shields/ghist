@@ -59,6 +59,8 @@ There are no display flags.
   default palette. The graph always uses Unicode.
 - Stat widths account for the graph column. Terminal width comes from `COLUMNS`,
   the terminal, or 80 columns, in that order.
+- Message tab stops and stat filename alignment use ghist’s Unicode character
+  widths, so their spacing can differ from Git’s.
 - Generated lines have no trailing whitespace. Patch bytes are preserved,
   including trailing whitespace and Git’s colors. Patch `index` lines use the
   same `core.abbrev` setting as commit headers.

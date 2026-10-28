@@ -95,7 +95,10 @@ mod tests {
         for (input, expected) in [
             (b"\tx\ty".as_slice(), b"            x       y".as_slice()),
             ("界\tx".as_bytes(), "    界      x".as_bytes()),
-            ("\u{ad}\tx".as_bytes(), "    \u{ad}       x".as_bytes()),
+            ("\u{ad}\tx".as_bytes(), "    \u{ad}        x".as_bytes()),
+            ("a\u{5c8}\tx".as_bytes(), "    a\u{5c8}       x".as_bytes()),
+            ("\u{18e00}\tx".as_bytes(), "    \u{18e00}      x".as_bytes()),
+            ("\u{1faf9}\tx".as_bytes(), "    \u{1faf9}      x".as_bytes()),
             (
                 "a\u{0301}\tx".as_bytes(),
                 "    a\u{0301}       x".as_bytes(),
