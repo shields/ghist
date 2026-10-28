@@ -390,9 +390,17 @@ mod tests {
             "...雪雪雪".as_bytes()
         );
         assert_eq!(filename(b"a\xffxyz", 4), b"...z");
+        assert_eq!(filename(b"a\x1bxyz", 4), b"...z");
         assert_eq!(filename("a\u{ffff}xyz".as_bytes(), 4), b"...z");
         assert_eq!(display_width("雪😀é".as_bytes()), 5);
         assert_eq!(display_width(b"\xff"), 1);
+        assert_eq!(display_width(b"a\x1b"), 2);
+        assert_eq!(display_width("a\u{ad}\u{5c8}".as_bytes()), 1);
+        assert_eq!(display_width("\u{18e00}\u{1faf9}".as_bytes()), 4);
+        assert_eq!(
+            filename("abc\u{18e00}\u{1faf9}".as_bytes(), 5),
+            "...\u{1faf9}".as_bytes()
+        );
     }
 
     #[test]

@@ -213,6 +213,35 @@ mod tests {
     }
 
     #[test]
+    fn executable_fixtures_run_during_parallel_creation() {
+        let script = [
+            b"#".as_slice(),
+            &vec![b' '; 128 * 1024],
+            b"\nprintf 'fixture\\377\\n' >&2\nexit 23\n",
+        ]
+        .concat();
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                scope.spawn(|| {
+                    let repo = TestRepo::new("sha1").unwrap();
+                    for _ in 0..16 {
+                        let ctx = repo.fake_git(&script).unwrap();
+                        let mut out = Vec::new();
+                        let mut err = Vec::new();
+                        assert_eq!(
+                            ghist::run(&ctx, &mut out, &mut err),
+                            ghist::Exit::Code(23),
+                            "{err:?}"
+                        );
+                        assert_eq!(out, b"");
+                        assert_eq!(err, b"fixture\xff\n");
+                    }
+                });
+            }
+        });
+    }
+
+    #[test]
     fn rejects_forward_and_null_parent_marks() {
         for parent in [0, 1] {
             let mut history = History::default();

@@ -105,9 +105,10 @@ stat layout.
 Git reencodes messages before ghist reads them. Fuller-style normalization
 removes leading and trailing blank lines, trims line endings, expands tabs to
 eight-column stops, and indents four spaces. Invalid UTF-8 or control bytes stop
-tab expansion. `render/width.rs` corrects differences between `unicode-width`
-and Git’s character-width behavior, verified against Git’s
-[tab expansion](https://git-scm.com/docs/pretty-options).
+tab expansion. Message tabs and diffstat filenames use `unicode-width` for
+character cell widths. Their spacing can differ from Git’s when its Unicode
+tables or width rules differ; Git’s Unicode version does not select ghist’s
+display rules.
 
 Painted graph prefixes are cached for each commit. Fixed rows are consumed by
 header lines, then a continuation row repeats. Blank rows end after the last

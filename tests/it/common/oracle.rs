@@ -20,6 +20,7 @@ pub fn fuller(repo: &TestRepo, args: &[&str]) -> std::io::Result<Vec<u8>> {
     let mut invocation = vec![
         "log",
         "--pretty=fuller",
+        "--no-expand-tabs",
         "--date=iso",
         "--topo-order",
         "--parents",
@@ -44,7 +45,22 @@ pub fn fuller(repo: &TestRepo, args: &[&str]) -> std::io::Result<Vec<u8>> {
         )));
     }
     let observed = parse::commits(&actual).map_err(std::io::Error::other)?;
-    let wanted = parse::commits(&expected).map_err(std::io::Error::other)?;
+    let mut wanted = parse::commits(&expected).map_err(std::io::Error::other)?;
+    for (actual, expected) in observed.iter().zip(&mut wanted) {
+        if actual.message.len() != expected.message.len()
+            || !actual
+                .message
+                .iter()
+                .zip(&expected.message)
+                .all(|(actual, expected)| parse::message_line_matches(expected, actual))
+        {
+            return Err(std::io::Error::other(format!(
+                "{args:?}\nactual message: {:?}\nexpected message: {:?}",
+                actual.message, expected.message
+            )));
+        }
+        expected.message.clone_from(&actual.message);
+    }
     if observed != wanted {
         return Err(std::io::Error::other(format!(
             "{args:?}\nactual: {observed:?}\nexpected: {wanted:?}"

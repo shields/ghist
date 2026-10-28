@@ -36,7 +36,9 @@ mod tests {
     }
 
     #[test]
-    fn unicode_tab_stops_match_git_across_scalar_values() {
+    fn unicode_tab_stops_follow_display_widths_across_scalar_values() {
+        use unicode_width::UnicodeWidthChar;
+
         let characters: Vec<_> = (1..=0x10_ffff)
             .filter_map(char::from_u32)
             .filter(|&character| !matches!(character, '\n' | '\r' | '\t'))
@@ -54,41 +56,51 @@ mod tests {
             ..Commit::default()
         });
         repo.import(&history).unwrap();
-        let reference = repo
-            .git(["log", "--pretty=fuller", "--date=iso", "--color=never"])
-            .unwrap();
         let actual = render(&repo);
-        let body = |bytes: Vec<u8>| {
-            bytes[bytes.windows(2).position(|part| part == b"\n\n").unwrap() + 2..].to_vec()
-        };
-        let reference = body(reference);
-        let actual = body(actual);
-        assert_eq!(
-            reference.split(|&byte| byte == b'\n').count(),
-            characters.len() + 1
-        );
-        assert_eq!(
-            actual.split(|&byte| byte == b'\n').count(),
-            characters.len() + 1
-        );
-        let mismatches: Vec<_> = characters
-            .into_iter()
-            .zip(reference.split(|&byte| byte == b'\n'))
-            .zip(actual.split(|&byte| byte == b'\n'))
-            .filter_map(|((character, expected), observed)| {
-                (expected != observed).then_some((
-                    u32::from(character),
-                    expected.to_vec(),
-                    observed.to_vec(),
-                ))
-            })
-            .collect();
-        assert_eq!(
-            mismatches.len(),
-            0,
-            "{:?}",
-            &mismatches[..mismatches.len().min(30)]
-        );
+        let body = &actual[actual.windows(2).position(|part| part == b"\n\n").unwrap() + 2..];
+        let lines: Vec<_> = body.split(|&byte| byte == b'\n').collect();
+        assert_eq!(lines.len(), characters.len() + 1);
+        assert_eq!(lines.last().unwrap(), b"");
+        for (character, line) in characters.into_iter().zip(lines) {
+            let prefix = format!("    a{character}");
+            let tail = line.strip_prefix(prefix.as_bytes()).unwrap();
+            if let Some(width) = character.width() {
+                assert_eq!(tail.last(), Some(&b'x'), "U+{:04X}", u32::from(character));
+                let padding = &tail[..tail.len() - 1];
+                assert!((1..=8).contains(&padding.len()));
+                assert!(padding.iter().all(|&byte| byte == b' '));
+                assert_eq!(
+                    (1 + width + padding.len()) % 8,
+                    0,
+                    "U+{:04X}",
+                    u32::from(character)
+                );
+            } else {
+                assert_eq!(tail, b"\tx", "U+{:04X}", u32::from(character));
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(not(coverage_nightly))]
+    fn unicode_spacing_is_independent_of_git_history_comparisons() {
+        for (message, encoding) in [
+            (
+                "a\u{ad}\tx\na\u{5c8}\tx\n\u{18e00}\tx\n\u{1faf9}\tx\n".as_bytes(),
+                None,
+            ),
+            (b"\xad\t\x0b", Some("ISO-8859-1")),
+        ] {
+            let repo = TestRepo::new("sha1").unwrap();
+            let mut history = History::default();
+            history.push(Commit {
+                message: message.to_vec(),
+                encoding: encoding.map(str::to_owned),
+                ..Commit::default()
+            });
+            repo.import(&history).unwrap();
+            crate::common::oracle::fuller(&repo, &[]).unwrap();
+        }
     }
 
     #[test]

@@ -14,7 +14,6 @@
 
 use std::ffi::{OsStr, OsString};
 use std::io::{self, Write};
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::{fs, thread};
@@ -135,19 +134,36 @@ impl TestRepo {
         let path = self.cwd.join(name);
         let mut bytes = b"#!/bin/sh\n".to_vec();
         bytes.extend_from_slice(body);
-        fs::write(&path, bytes)?;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
+        // A child owns writable script handles so parallel forks cannot inherit them.
+        let mut child = Command::new("/bin/sh")
+            .args(["-c", "/bin/cat > \"$1\" && /bin/chmod 755 \"$1\"", "sh"])
+            .arg(&path)
+            .env_clear()
+            .envs(self.env.iter().cloned())
+            .current_dir(&self.cwd)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let written = child
+            .stdin
+            .take()
+            .ok_or_else(|| io::Error::other("missing script stdin"))?
+            .write_all(&bytes);
+        let output = child.wait_with_output()?;
+        if !output.status.success() || !output.stderr.is_empty() {
+            return Err(io::Error::other(format!(
+                "script creation failed: {output:?}"
+            )));
+        }
+        written?;
         Ok(path)
     }
 
     pub fn fake_git(&self, script: &[u8]) -> io::Result<ghist::Context> {
         let bin = self.cwd.join("bin");
         fs::create_dir_all(&bin)?;
-        let path = bin.join("git");
-        let mut bytes = b"#!/bin/sh\n".to_vec();
-        bytes.extend_from_slice(script);
-        fs::write(&path, bytes)?;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
+        self.script("bin/git", script)?;
         let mut ctx = self.context(&[]);
         ctx.env.retain(|(key, _)| key != "PATH");
         ctx.env.push(("PATH".into(), bin.into_os_string()));
