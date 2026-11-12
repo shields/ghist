@@ -30,7 +30,7 @@ install:
 test:
 	cargo test --all-targets
 
-lint:
+lint: actions-lock-verify-local
 	bash -n completions/ghist.bash
 	zsh -n completions/ghist.zsh
 	zsh -n tests/it/common/completion.zsh
@@ -79,3 +79,17 @@ bench: build
 	hyperfine --warmup 3 --runs 10 \
 		--command-name 'ghist: stats' 'cd "$$BENCH_REPO" && "$$GHIST_BIN" --stat "$$BENCH_REV" >/dev/null' \
 		--command-name 'git: stats' 'cd "$$BENCH_REPO" && git --no-pager log --graph --pretty=fuller --topo-order --no-diff-merges --stat "$$BENCH_REV" >/dev/null'
+
+.PHONY: actions-lock-install actions-lock actions-lock-verify-local actions-lock-verify
+
+actions-lock-install:
+	gh extension install github/gh-actions-lock --pin v0.4.1 --force
+
+actions-lock:
+	gh actions-lock --no-interactive
+
+actions-lock-verify-local:
+	gh actions-lock --verify-local
+
+actions-lock-verify:
+	gh actions-lock --verify

@@ -44,13 +44,13 @@ jobs:
       # renovate: datasource=crate depName=gitcalver
       GITCALVER_VERSION: 0.20261107.0
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
       - run: rustup show active-toolchain
       - run: cargo install gitcalver --version "$GITCALVER_VERSION" --locked
-      - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+      - uses: rust-lang/crates-io-auth-action@v1.0.6
         id: auth
       - run: make publish
         env:

@@ -15,22 +15,10 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
-    "config:best-practices",
-    ":semanticCommitsDisabled",
+    "github>shields/right-answers//renovate/base.json5",
     "customManagers:githubActionsVersions",
   ],
-  platformAutomerge: true,
   packageRules: [
-    {
-      description: "Automerge non-major updates",
-      matchUpdateTypes: ["minor", "patch", "pin", "digest"],
-      automerge: true,
-    },
-    {
-      description: "Automerge dev dependencies",
-      matchDepTypes: ["devDependencies"],
-      automerge: true,
-    },
     {
       description: "Preserve full versions for crate tools",
       matchManagers: ["custom.regex"],
