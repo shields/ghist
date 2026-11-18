@@ -58,7 +58,7 @@ Before every commit:
 1. Review the diff for correctness, regressions, missing tests, and unnecessary
    comments. After a fix, review the changed portion again.
 2. Run `make lint test coverage`; all tests and the 100% line gate must pass.
-3. Submit through LGTMCP (`review_and_commit`).
+3. Commit with plain git.
 
 Before closing each implementation milestone, run
 `PROPTEST_CASES=1024 make test`. Keep each change and its tests together. Do not
