@@ -101,7 +101,7 @@ impl<Id: Clone + Eq> Graph<Id> {
         let mut assignments = Vec::new();
         for parent in shown {
             if existing.is_none() || shown.len() > 1 {
-                self.counter = (self.counter + 1) % self.ncolors.get();
+                self.counter = (self.counter + 1) % self.ncolors;
             }
             if assignments
                 .iter()
