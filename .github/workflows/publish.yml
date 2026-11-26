@@ -40,7 +40,7 @@ jobs:
       id-token: write # crates.io exchanges OIDC identity for a short-lived publish token.
     env:
       # renovate: datasource=crate depName=gitcalver
-      GITCALVER_VERSION: 0.20261122.1
+      GITCALVER_VERSION: 0.20261123.1
     steps:
       - uses: actions/checkout@v7.0.1
         with:
